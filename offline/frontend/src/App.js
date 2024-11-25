@@ -8,6 +8,7 @@ const App = () => {
   const [activeButton, setActiveButton] = useState(null);
   const [selectedValue, setSelectedValue] = useState(null); // To store the selected value from the dictionary
   const [showApiButton, setShowApiButton] = useState(false); // To show the new button that triggers the API call
+  const [logs, setLogs] = useState([]); // To store log messages
 
   // Define button size (in pixels)
   const buttonSize = { width: 30, height: 230 };
@@ -31,38 +32,47 @@ const App = () => {
     setActiveButton(buttonId);
     setSelectedValue(buttonDict[buttonId]); // Set the selected value from the dictionary
     setShowApiButton(true); // Show the new button to make the API call
-
   };
 
   // Button positions with offsets
   const buttonPositions = [
-    { left: '10%', top: '30%', xOffset: 150, yOffset: 155 },
-    { left: '10%', top: '30%', xOffset: 205, yOffset: 155 },
-    { left: '10%', top: '30%', xOffset: 265, yOffset: 155 },
-    { left: '10%', top: '30%', xOffset: 320, yOffset: 155 },
-    { left: '10%', top: '30%', xOffset: 380, yOffset: 155 },
-    { left: '10%', top: '30%', xOffset: 435, yOffset: 155 },
-    { left: '10%', top: '30%', xOffset: 495, yOffset: 155 },
-    { left: '10%', top: '30%', xOffset: 550, yOffset: 155 }
+    { left: '10%', top: '30%', xOffset: 40, yOffset: 55 },
+    { left: '10%', top: '30%', xOffset: 90, yOffset: 55 },
+    { left: '10%', top: '30%', xOffset: 145, yOffset: 55 },
+    { left: '10%', top: '30%', xOffset: 195, yOffset: 55 },
+    { left: '10%', top: '30%', xOffset: 250, yOffset: 55 },
+    { left: '10%', top: '30%', xOffset: 305, yOffset: 55 },
+    { left: '10%', top: '30%', xOffset: 360, yOffset: 55 },
+    { left: '10%', top: '30%', xOffset: 410, yOffset: 55 }
   ];
 
   // New button to trigger the API call
   const handleApiButtonClick = async () => {
     const currentTime = getCurrentTime();
-    console.log('API call executed with value:', selectedValue, 'at time ', currentTime);
-    const response = await fetch('http://localhost:5050/run-script', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ value: selectedValue, time: currentTime }),
-    });
-    if (response.ok) {
-      console.log('API call executed successfully');
-    } else {
-      console.error('Error running API call');
+    const logMessage = `API call executed with value: ${selectedValue} at time: ${currentTime}`;
+    setLogs((prevLogs) => [...prevLogs, logMessage]); // Add the log message to the log state
+
+    try {
+        const response = await fetch('http://127.0.0.1:5050/run-script', { // Use the correct endpoint URL
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', // Ensure this matches what Flask expects
+            },
+            body: JSON.stringify({ buttonId: activeButton, timestamp: currentTime }),
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            setLogs((prevLogs) => [...prevLogs, `API call succeeded: ${result.output}`]);
+        } else {
+            const errorText = await response.text();
+            setLogs((prevLogs) => [...prevLogs, `API call failed: ${errorText}`]);
+        }
+    } catch (error) {
+        setLogs((prevLogs) => [...prevLogs, `Error: ${error.message}`]);
     }
-  };
+};
+
 
   return (
     <div
@@ -71,62 +81,98 @@ const App = () => {
         width: '60%',
         height: '100vh',
         display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
       }}
     >
-      <img
-        src={image_source}
-        alt="Background"
+      <div
         style={{
-          width: '80%',
-          height: 'auto',
-          objectFit: 'cover',
+          position: 'relative',
+          width: '100%',
+          height: '80%',
         }}
-      />
-
-      {buttonPositions.map((position, index) => (
-        <button
-          key={index}
+      >
+        <img
+          src={image_source}
+          alt="Background"
           style={{
-            position: 'absolute',
-            left: `calc(${position.left} - ${buttonSize.width / 2}px + ${position.xOffset}px)`,
-            top: `calc(${position.top} - ${buttonSize.height / 2}px + ${position.yOffset}px)`,
-            width: `${buttonSize.width}px`,
-            height: `${buttonSize.height}px`,
-            backgroundColor: activeButton === index ? 'blue' : 'transparent',
-            border: '1px solid black',
-            padding: 0,
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            color: activeButton === index ? 'white' : 'black',
+            width: '80%',
+            height: 'auto',
+            objectFit: 'cover',
           }}
-          onClick={() => handleButtonClick(index)}
-        >
-          Button {index + 1}
-        </button>
-      ))}
+        />
 
-      {showApiButton && (
-        <button
-          style={{
-            position: 'absolute',
-            top: '90%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '10px',
-            backgroundColor: 'green',
-            color: 'white',
-            cursor: 'pointer',
-            border: 'none',
-          }}
-          onClick={handleApiButtonClick}
-        >
-          Trigger API with {selectedValue}
-        </button>
-      )}
+        {buttonPositions.map((position, index) => (
+          <button
+            key={index}
+            style={{
+              position: 'absolute',
+              left: `calc(${position.left} - ${buttonSize.width / 2}px + ${position.xOffset}px)`,
+              top: `calc(${position.top} - ${buttonSize.height / 2}px + ${position.yOffset}px)`,
+              width: `${buttonSize.width}px`,
+              height: `${buttonSize.height}px`,
+              backgroundColor: activeButton === index ? 'blue' : 'transparent',
+              border: '1px solid black',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              color: activeButton === index ? 'white' : 'black',
+            }}
+            onClick={() => handleButtonClick(index)}
+          >
+            Button {index + 1}
+          </button>
+        ))}
+
+        {showApiButton && (
+          <button
+            style={{
+              position: 'absolute',
+              top: '90%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '10px',
+              backgroundColor: 'green',
+              color: 'white',
+              cursor: 'pointer',
+              border: 'none',
+            }}
+            onClick={handleApiButtonClick}
+          >
+            Trigger API with {selectedValue}
+          </button>
+        )}
+      </div>
+
+      {/* Log display area */}
+      <div
+        style={{
+          width: '100%',
+          height: '20%',
+          overflowY: 'auto',
+          border: '1px solid black',
+          marginTop: '10px',
+          padding: '10px',
+          backgroundColor: '#f9f9f9',
+        }}
+      >
+        <h4>Log:</h4>
+        {logs.map((log, index) => (
+          <p 
+            key={index} 
+            style={{ 
+              margin: 0, 
+              fontSize: '12px' // Set a smaller font size here
+            }}
+          >
+            {log}
+          </p>
+        ))}
+      </div>
+
     </div>
   );
 };
