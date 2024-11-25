@@ -13,7 +13,7 @@ trap cleanup SIGINT
 kill -9 $(lsof -t -i:5050)
 
 echo "Starting Flask backend on port 5050..."
-FLASK_APP=app.py flask run --port=5050 &
+FLASK_APP=app.py flask run --host=0.0.0.0 --port=5050 &
 FLASK_PID=$!
 
 # Wait for both processes to exit

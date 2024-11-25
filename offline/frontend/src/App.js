@@ -53,7 +53,7 @@ const App = () => {
     setLogs((prevLogs) => [...prevLogs, logMessage]); // Add the log message to the log state
 
     try {
-        const response = await fetch('http://127.0.0.1:5050/run-script', { // Use the correct endpoint URL
+        const response = await fetch('http://10.10.5.22:5050/run-script', { // Use the correct endpoint URL
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json', // Ensure this matches what Flask expects

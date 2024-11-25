@@ -19,7 +19,7 @@ def health_check():
     return jsonify({"status": "OK"}), 200
 
 @app.route('/run-script', methods=['POST'])
-def run_script():
+def main():
     data = request.get_json()
     button_id = data.get('buttonId')
     timestamp = data.get('timestamp')
@@ -32,5 +32,5 @@ def run_script():
         return jsonify({"error": e.stderr}), 500
 
 if __name__ == '__main__':
-    app.run(port=5050)
+    app.run(host='0.0.0.0', port=5050, debug=True)  # Allow access from any IP
     app.debug = True
