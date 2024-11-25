@@ -13,6 +13,11 @@ def handle_preflight():
         res.headers['X-Content-Type-Options'] = '*'
         return res
 
+@app.route('/')
+def health_check():
+    # Return a simple health check message with a 200 status code
+    return jsonify({"status": "OK"}), 200
+
 @app.route('/run-script', methods=['POST'])
 def run_script():
     data = request.get_json()
