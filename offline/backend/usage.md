@@ -7,4 +7,4 @@ pip install -r requirements.txt
 
 ## Update Command
 
-sync -avu ./offline/backend/ sbenites@10.10.5.22:~/backend/
+rsync -avu ./offline/backend/ sbenites@10.10.5.23:~/backend/
