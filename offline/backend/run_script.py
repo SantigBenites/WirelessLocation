@@ -1,46 +1,52 @@
-import paramiko
-import re,time
-from utils import send_to_console
+from netmiko import ConnectHandler
+import re
 import logging
-logging.basicConfig(level=logging.DEBUG)
-paramiko.util.log_to_file("paramiko.log")
 
+# Configure logging
+#logging.basicConfig(level=logging.DEBUG)
 
-# Replace with your SSH credentials
-host = "192.168.1.13"  # Replace with the AP's IP address
-port = 22
-username = "fun_network"
-password = "fun_network"
+# Device configuration
+device = {
+    "device_type": "cisco_wlc",
+    "host": "192.168.1.13",  # Replace with the AP's IP address
+    "username": "fun_network",
+    "password": "fun_network",
+    "secret": "fun_network",  # Optional, if an enable password is needed
+}
+
+# Commands
 get_macs_command = "show wireless client summary"
+rssi_command_template = "show wireless client mac-address {mac} detail | include Radio Signal Strength Indicator"
 
-def execute_ssh_command(ssh_client, command):
-    stdin, stdout, stderr = ssh_client.exec_command(command)
-    output = stdout.read().decode()
-    return output
-
-ssh = paramiko.SSHClient()
-ssh.load_system_host_keys()
+# Regular expression to extract MAC addresses
+mac_regex = re.compile(r'^\s*([0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4})\s+APA00F', re.MULTILINE)
 
 try:
-    print(f"Connecting to {host}...")
-    ssh.connect(hostname=host, port=port, username=username, password=password, look_for_keys=False)
+    # Establish connection using netmiko
+    print(f"Connecting to {device['host']}...")
+    connection = ConnectHandler(**device)
     print("Connection established.")
 
-    # Run the initial command to get MAC addresses
-    macs_output = execute_ssh_command(ssh, get_macs_command)
+    # Execute command to get MAC addresses
+    macs_output = connection.send_command(get_macs_command)
 
-    # Regular expression to match MAC addresses
-    mac_regex = re.compile(r'^\s*([0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4})\s+APA00F', re.MULTILINE)
-
-    # Find all MAC addresses in the string
+    # Find all MAC addresses in the output
     mac_addresses = mac_regex.findall(macs_output)
 
-    for mac in mac_addresses:
-        rssi_command = f"show wireless client mac-address {mac.upper()} detail | include Radio Signal Strength Indicator"
-        rssi_output = execute_ssh_command(ssh, rssi_command)
-        print(rssi_output)
+    if mac_addresses:
+        print("MAC Addresses found:")
+        for mac in mac_addresses:
+            print(mac)
 
-    print(f"Connection to {host} closed.")
+            # Fetch RSSI for each MAC address
+            rssi_command = rssi_command_template.format(mac=mac.upper())
+            rssi_output = connection.send_command(rssi_command)
+            print(f"RSSI for {mac}:")
+            print(rssi_output)
+    else:
+        print("No MAC addresses found.")
 
 finally:
-    ssh.close()
+    # Disconnect from the device
+    connection.disconnect()
+    print(f"Connection to {device['host']} closed.")

@@ -2,3 +2,4 @@ Flask==2.3.3
 Flask-Cors==3.0.10
 pyserial==3.5
 paramiko==3.5.0
+netmiko==4.5.0
