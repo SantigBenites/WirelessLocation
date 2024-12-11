@@ -3,6 +3,7 @@ from flask_cors import CORS
 import subprocess
 import threading
 import time
+from offline.backend.wifi_client_data import get_wifi_client_data
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -20,9 +21,9 @@ def run_script_periodically():
             current_button_id = button_id  # Access the shared variable
 
         if current_button_id is not None:
-            command = ["python3", "run_script.py", str(current_button_id)]
+            
             try:
-                subprocess.run(command, capture_output=True, text=True, check=True)
+                get_wifi_client_data(current_button_id)
                 print(f"Script executed with button ID: {current_button_id}")
             except subprocess.CalledProcessError as e:
                 print(f"Error running script: {e.stderr}")
