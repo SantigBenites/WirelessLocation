@@ -53,12 +53,12 @@ const App = () => {
     setLogs((prevLogs) => [...prevLogs, logMessage]); // Add the log message to the log state
 
     try {
-        const response = await fetch('http://10.10.5.22:5050/run-script', { // Use the correct endpoint URL
+        const response = await fetch('http://10.10.5.23:5050/update-button-id', { // Use the correct endpoint URL
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json', // Ensure this matches what Flask expects
             },
-            body: JSON.stringify({ buttonId: activeButton, timestamp: currentTime }),
+            body: JSON.stringify({ buttonId: activeButton + 1, timestamp: currentTime }),
         });
 
         if (response.ok) {

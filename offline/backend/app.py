@@ -1,10 +1,33 @@
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import subprocess
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Shared variable to store button ID
+button_id = None
+
+# Lock for thread safety
+button_id_lock = threading.Lock()
+
+def run_script_periodically():
+    """Run the Python script every 15 seconds."""
+    while True:
+        with button_id_lock:
+            current_button_id = button_id  # Access the shared variable
+
+        if current_button_id is not None:
+            command = ["python3", "run_script.py", str(current_button_id)]
+            try:
+                subprocess.run(command, capture_output=True, text=True, check=True)
+                print(f"Script executed with button ID: {current_button_id}")
+            except subprocess.CalledProcessError as e:
+                print(f"Error running script: {e.stderr}")
+        
+        time.sleep(15)  # Wait 15 seconds before running again
 
 @app.before_request
 def handle_preflight():
@@ -15,22 +38,22 @@ def handle_preflight():
 
 @app.route('/')
 def health_check():
-    # Return a simple health check message with a 200 status code
     return jsonify({"status": "OK"}), 200
 
-@app.route('/run-script', methods=['POST'])
-def main():
+@app.route('/update-button-id', methods=['POST'])
+def update_button_id():
+    """Update the button ID from the frontend."""
+    global button_id
     data = request.get_json()
-    button_id = data.get('buttonId')
-    timestamp = data.get('timestamp')
+    new_button_id = data.get('buttonId')
+    
+    with button_id_lock:
+        button_id = new_button_id
 
-    command = ["python3", "run_script.py", str(button_id), timestamp]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        return jsonify({"output": result.stdout})
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": e.stderr}), 500
+    return jsonify({"output": f"Button ID updated to {button_id}", "buttonId": button_id})
+
+# Start the periodic task in a background thread
+threading.Thread(target=run_script_periodically, daemon=True).start()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5050, debug=True)  # Allow access from any IP
-    app.debug = True
+    app.run(host='0.0.0.0', port=5050, debug=True)

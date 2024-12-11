@@ -1,9 +1,19 @@
+import sys
 from netmiko import ConnectHandler
 import re
 import logging
 
+# Validate input
+if len(sys.argv) < 2:
+    print("Usage: python3 run_script.py <button_id>")
+    sys.exit(1)
+
+button_id = sys.argv[1]
+
+print(f"Running script for button ID: {button_id}")
+
 # Configure logging
-#logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 # Device configuration
 device = {
