@@ -25,7 +25,7 @@ def run_script_periodically():
             try:
                 get_wifi_client_data(current_button_id)
                 print(f"Script executed with button ID: {current_button_id}")
-            except subprocess.CalledProcessError as e:
+            except Exception as e:
                 print(f"Error running script: {e.stderr}")
         
         time.sleep(15)  # Wait 15 seconds before running again
