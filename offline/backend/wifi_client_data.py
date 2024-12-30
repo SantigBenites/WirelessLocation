@@ -1,57 +1,42 @@
 import sys
-from netmiko import ConnectHandler
 import re
 import logging
+import requests
 
-def get_wifi_client_data(button_id) -> dict:
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    print(f"Running script for button ID: {button_id}")
+def get_wifi_client_data() -> dict:
+    """
+    Queries multiple Pico W devices and retrieves Wi-Fi scan data.
+    
+    Args:
+        pico_ips (list): List of IP addresses of the Pico W devices.
+    
+    Returns:
+        dict: A dictionary containing Wi-Fi scan data keyed by Pico IP address.
+    """
 
-    # Configure logging
-    # logging.basicConfig(level=logging.DEBUG)
 
-    # Device configuration
-    device = {
-        "device_type": "cisco_wlc",
-        "host": "192.168.1.13",  # Replace with the AP's IP address
-        "username": "fun_network",
-        "password": "fun_network",
-        "secret": "fun_network",  # Optional, if an enable password is needed
-    }
+    pico_ips = [
+        "192.168.0.18",
+    ]
 
-    # Commands
-    get_macs_command = "show wireless client summary"
-    rssi_command_template = "show wireless client mac-address {mac} detail | include Radio Signal Strength Indicator"
+    results = {}
 
-    # Regular expression to extract MAC addresses
-    mac_regex = re.compile(r'^\s*([0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4})\s+APA00F', re.MULTILINE)
-
-    try:
-        # Establish connection using netmiko
-        print(f"Connecting to {device['host']}...")
-        connection = ConnectHandler(**device)
-        print("Connection established.")
-
-        # Execute command to get MAC addresses
-        macs_output = connection.send_command(get_macs_command)
-
-        # Find all MAC addresses in the output
-        mac_addresses = mac_regex.findall(macs_output)
-
-        if mac_addresses:
-            print("MAC Addresses found:")
-            for mac in mac_addresses:
-                print(mac)
-
-                # Fetch RSSI for each MAC address
-                rssi_command = rssi_command_template.format(mac=mac.upper())
-                rssi_output = connection.send_command(rssi_command)
-                print(f"RSSI for {mac}:")
-                print(rssi_output)
-        else:
-            print("No MAC addresses found.")
-
-    finally:
-        # Disconnect from the device
-        connection.disconnect()
-        print(f"Connection to {device['host']} closed.")
+    for pico_ip in pico_ips:
+        try:
+            logging.info(f"Querying Pico W at {pico_ip}...")
+            response = requests.get(f"http://{pico_ip}/scan", timeout=5)  # 5-second timeout
+            if response.status_code == 200:
+                wifi_data = response.json()
+                results[pico_ip] = wifi_data
+                logging.info(f"Received data from {pico_ip}")
+            else:
+                logging.warning(f"Failed to fetch data from {pico_ip}, Status Code: {response.status_code}")
+                results[pico_ip] = {"error": f"Status code {response.status_code}"}
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Error querying {pico_ip}: {e}")
+            results[pico_ip] = {"error": str(e)}
+    
+    return results
