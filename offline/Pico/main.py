@@ -2,6 +2,7 @@ import network
 import socket
 import json
 import time
+import machine
 
 # Configure Wi-Fi connection
 SSID = "fun_network"
@@ -18,6 +19,10 @@ if not wlan.isconnected():
         time.sleep(1)
 print("Connected to Wi-Fi")
 print("IP Address:", wlan.ifconfig()[0])
+
+led = machine.Pin("LED", machine.Pin.OUT)
+led.off()
+led.on()
 
 # Function to perform Wi-Fi scan and return detailed results
 def scan_wifi():
