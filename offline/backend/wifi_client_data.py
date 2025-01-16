@@ -19,7 +19,7 @@ def get_wifi_client_data() -> dict:
 
 
     pico_ips = [
-        "192.168.0.18",
+        "192.168.0.21",
     ]
 
     results = {}
