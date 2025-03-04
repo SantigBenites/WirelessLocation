@@ -5,7 +5,7 @@ import requests
 import subprocess
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+#logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 pico_ips = [
         "192.168.1.31",
@@ -55,13 +55,21 @@ def get_wifi_client_data() -> dict:
     return results
 
 
+import subprocess
+
 def get_status():
-    
     results = {}
-    for key,ip in zip(pico_names,pico_ips):
+    for key, ip in zip(pico_names, pico_ips):
         try:
-            #ping_result = subprocess.run(["ping", "-c", "1", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Run the ping command with a timeout of 1 second and 1 attempt
+            completed_process = subprocess.run(
+                ["ping", "-c", "1", "-W", "1", ip],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True  # Raise an exception if the command fails
+            )
             results[key] = True
-        except Exception as e:
+        except subprocess.CalledProcessError:
+            # If the ping command fails, the IP is not reachable
             results[key] = False
     return results

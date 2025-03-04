@@ -39,6 +39,19 @@ const App = () => {
     10: 'Pico10',
   };
 
+  const reverse_squareDict = {
+    'Pico1' : 1,
+    'Pico2' : 2,
+    'Pico3' : 3,
+    'Pico4' : 4,
+    'Pico5' : 5,
+    'Pico6' : 6,
+    'Pico7' : 7,
+    'Pico8' : 8,
+    'Pico9' : 9,
+    'Pico10' : 10,
+  };
+
   // Handler for when a button is pressed
   const handleButtonClick = (buttonId) => {
     setActiveButton(buttonId);
@@ -100,7 +113,7 @@ const App = () => {
     }
   };
 
-  // Function to make API calls for each square
+
   const makeApiCallForSquare = useCallback(async () => {
     try {
       const response = await fetch(`http://${url}/check-status`);
@@ -108,16 +121,21 @@ const App = () => {
   
       setSquareStates((prevStates) => {
         const newStates = [...prevStates];
-        Object.keys(results).forEach((key, index) => {
-          newStates[index] = results[key]; // Update each square based on the ping result
+
+        // Iterate over the keys in the results object
+        Object.keys(results).forEach((key) => {
+          // Use reverse_squareDict to get the correct index for the key
+          const index = reverse_squareDict[key] - 1; // Subtract 1 because array indices start at 0
+          newStates[index] = results[key]; // Update the corresponding square state
         });
+
         return newStates;
       });
     } catch (error) {
       console.error("Error fetching status for squares:", error);
       setLogs((prevLogs) => [...prevLogs, `Error fetching status for squares: ${error.message}`]);
     }
-  }, []);
+  }, [reverse_squareDict]);
 
   // Use useEffect to run API calls every n seconds
   useEffect(() => {
