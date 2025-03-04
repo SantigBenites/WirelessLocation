@@ -78,6 +78,28 @@ const App = () => {
     }
   };
 
+  // Function to stop the script
+  const handleStopScriptClick = async () => {
+    try {
+      const response = await fetch(`http://${url}/stop-script`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setLogs((prevLogs) => [...prevLogs, `Script stopped: ${result.output}`]);
+      } else {
+        const errorText = await response.text();
+        setLogs((prevLogs) => [...prevLogs, `Failed to stop script: ${errorText}`]);
+      }
+    } catch (error) {
+      setLogs((prevLogs) => [...prevLogs, `Error: ${error.message}`]);
+    }
+  };
+
   // Function to make API calls for each square
   const makeApiCallForSquare = useCallback(async () => {
     try {
@@ -141,12 +163,20 @@ const App = () => {
         </div>
 
         {showApiButton && (
-          <button
-            className="api-button"
-            onClick={handleApiButtonClick}
-          >
-            Trigger API with {selectedValue}
-          </button>
+          <div>
+            <button
+              className="api-button"
+              onClick={handleApiButtonClick}
+            >
+              Trigger API with {selectedValue}
+            </button>
+            <button
+              className="stop-button"
+              onClick={handleStopScriptClick}
+            >
+              Stop Script
+            </button>
+          </div>
         )}
       </div>
 
