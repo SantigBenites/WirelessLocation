@@ -1,50 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import './App.css'; // Import the CSS file
 
 // Function to get the current time
 const getCurrentTime = () => new Date().toISOString();
-const image_source = process.env.PUBLIC_URL + '/fcul_c6.png';
+const url = "localhost:5050"; // API base URL
 
 const App = () => {
   const [activeButton, setActiveButton] = useState(null);
   const [selectedValue, setSelectedValue] = useState(null); // To store the selected value from the dictionary
   const [showApiButton, setShowApiButton] = useState(false); // To show the new button that triggers the API call
   const [logs, setLogs] = useState([]); // To store log messages
-
-  // Define button size (in pixels)
-  const buttonSize = { width: 30, height: 230 };
+  const [squareStates, setSquareStates] = useState(Array(10).fill(false)); // To store the state of the squares (false = red, true = green)
 
   // Dictionary of values for each button (just an example, can be replaced with real data)
   const buttonDict = {
-    0: 'Value 1',
-    1: 'Value 2',
-    2: 'Value 3',
-    3: 'Value 4',
-    4: 'Value 5',
-    5: 'Value 6',
-    6: 'Value 7',
-    7: 'Value 8',
-    8: 'Value 9',
-    9: 'Value 10',
+    1: 'Value 1',
+    2: 'Value 2',
+    3: 'Value 3',
+    4: 'Value 4',
+    5: 'Value 5',
+    6: 'Value 6',
+    7: 'Value 7',
+    8: 'Value 8',
+    9: 'Value 9',
+    10: 'Value 10',
+  };
+
+  const squareDict = {
+    1: 'Pico1',
+    2: 'Pico2',
+    3: 'Pico3',
+    4: 'Pico4',
+    5: 'Pico5',
+    6: 'Pico6',
+    7: 'Pico7',
+    8: 'Pico8',
+    9: 'Pico9',
+    10: 'Pico10',
   };
 
   // Handler for when a button is pressed
   const handleButtonClick = (buttonId) => {
     setActiveButton(buttonId);
-    setSelectedValue(buttonDict[buttonId]); // Set the selected value from the dictionary
+    setSelectedValue(buttonDict[buttonId + 1]); // Set the selected value from the dictionary
     setShowApiButton(true); // Show the new button to make the API call
   };
-
-  // Button positions with offsets
-  const buttonPositions = [
-    { left: '10%', top: '30%', xOffset: 40, yOffset: 55 },
-    { left: '10%', top: '30%', xOffset: 90, yOffset: 55 },
-    { left: '10%', top: '30%', xOffset: 145, yOffset: 55 },
-    { left: '10%', top: '30%', xOffset: 195, yOffset: 55 },
-    { left: '10%', top: '30%', xOffset: 250, yOffset: 55 },
-    { left: '10%', top: '30%', xOffset: 305, yOffset: 55 },
-    { left: '10%', top: '30%', xOffset: 360, yOffset: 55 },
-    { left: '10%', top: '30%', xOffset: 410, yOffset: 55 }
-  ];
 
   // New button to trigger the API call
   const handleApiButtonClick = async () => {
@@ -53,93 +53,96 @@ const App = () => {
     setLogs((prevLogs) => [...prevLogs, logMessage]); // Add the log message to the log state
 
     try {
-        const response = await fetch('http://10.10.5.23:5050/update-button-id', { // Use the correct endpoint URL
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json', // Ensure this matches what Flask expects
-            },
-            body: JSON.stringify({ buttonId: activeButton + 1, timestamp: currentTime }),
-        });
+      const response = await fetch(`http://${url}/update-button-id`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ buttonId: activeButton + 1, timestamp: currentTime }),
+      });
 
-        if (response.ok) {
-            const result = await response.json();
-            setLogs((prevLogs) => [...prevLogs, `API call succeeded: ${result.output}`]);
-        } else {
-            const errorText = await response.text();
-            setLogs((prevLogs) => [...prevLogs, `API call failed: ${errorText}`]);
-        }
+      if (response.ok) {
+        const result = await response.json();
+        setLogs((prevLogs) => [...prevLogs, `API call succeeded: ${result.output}`]);
+
+        // Update the square states based on the backend response
+        const newSquareStates = [...squareStates];
+        newSquareStates[activeButton] = result.output === 'true'; // Assuming the backend returns 'true' or 'false'
+        setSquareStates(newSquareStates);
+      } else {
+        const errorText = await response.text();
+        setLogs((prevLogs) => [...prevLogs, `API call failed: ${errorText}`]);
+      }
     } catch (error) {
-        setLogs((prevLogs) => [...prevLogs, `Error: ${error.message}`]);
+      setLogs((prevLogs) => [...prevLogs, `Error: ${error.message}`]);
     }
-};
+  };
 
+  // Function to make API calls for each square
+  const makeApiCallForSquare = useCallback(async () => {
+    try {
+      const response = await fetch(`http://${url}/check-status`);
+      const results = await response.json();
+  
+      setSquareStates((prevStates) => {
+        const newStates = [...prevStates];
+        Object.keys(results).forEach((key, index) => {
+          newStates[index] = results[key]; // Update each square based on the ping result
+        });
+        return newStates;
+      });
+    } catch (error) {
+      console.error("Error fetching status for squares:", error);
+      setLogs((prevLogs) => [...prevLogs, `Error fetching status for squares: ${error.message}`]);
+    }
+  }, []);
+
+  // Use useEffect to run API calls every n seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      makeApiCallForSquare();
+    }, 10000); // 10 seconds
+  
+    return () => clearInterval(interval); // Cleanup interval on component unmount
+  }, [makeApiCallForSquare]);
+
+  // Side panel component
+  const SidePanel = () => {
+    return (
+      <div className="side-panel">
+        {squareStates.map((isGreen, index) => (
+          <div
+            key={index}
+            className={`square ${isGreen ? 'green' : 'red'}`}
+          >
+            {squareDict[index + 1]}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: '60%',
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}
-    >
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          height: '80%',
-        }}
-      >
-        <img
-          src={image_source}
-          alt="Background"
-          style={{
-            width: '80%',
-            height: 'auto',
-            objectFit: 'cover',
-          }}
-        />
+    <div className="app-container">
+      <div className="main-content">
+        {/* Side Panel */}
+        <SidePanel />
 
-        {buttonPositions.map((position, index) => (
-          <button
-            key={index}
-            style={{
-              position: 'absolute',
-              left: `calc(${position.left} - ${buttonSize.width / 2}px + ${position.xOffset}px)`,
-              top: `calc(${position.top} - ${buttonSize.height / 2}px + ${position.yOffset}px)`,
-              width: `${buttonSize.width}px`,
-              height: `${buttonSize.height}px`,
-              backgroundColor: activeButton === index ? 'blue' : 'transparent',
-              border: '1px solid black',
-              padding: 0,
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              color: activeButton === index ? 'white' : 'black',
-            }}
-            onClick={() => handleButtonClick(index)}
-          >
-            Button {index + 1}
-          </button>
-        ))}
+        <div className="button-container">
+          {Object.keys(buttonDict).map((key, index) => (
+            <button
+              key={index}
+              className={`button ${activeButton === index ? 'active' : ''}`}
+              onClick={() => handleButtonClick(index)}
+            >
+              Button {index + 1}
+            </button>
+          ))}
+        </div>
 
         {showApiButton && (
           <button
-            style={{
-              position: 'absolute',
-              top: '90%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              padding: '10px',
-              backgroundColor: 'green',
-              color: 'white',
-              cursor: 'pointer',
-              border: 'none',
-            }}
+            className="api-button"
             onClick={handleApiButtonClick}
           >
             Trigger API with {selectedValue}
@@ -148,31 +151,14 @@ const App = () => {
       </div>
 
       {/* Log display area */}
-      <div
-        style={{
-          width: '100%',
-          height: '20%',
-          overflowY: 'auto',
-          border: '1px solid black',
-          marginTop: '10px',
-          padding: '10px',
-          backgroundColor: '#f9f9f9',
-        }}
-      >
+      <div className="log-container">
         <h4>Log:</h4>
         {logs.map((log, index) => (
-          <p 
-            key={index} 
-            style={{ 
-              margin: 0, 
-              fontSize: '12px' // Set a smaller font size here
-            }}
-          >
+          <p key={index} className="log-message">
             {log}
           </p>
         ))}
       </div>
-
     </div>
   );
 };

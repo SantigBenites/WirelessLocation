@@ -3,10 +3,9 @@ from flask_cors import CORS
 import threading
 import time
 from pymongo import MongoClient
-from offline.backend.wifi_client_data import get_wifi_client_data
+from wifi_client_data import get_wifi_client_data, get_status
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
 
 # Shared variable to store button ID
 button_id = None
@@ -22,19 +21,6 @@ COLLECTION_NAME = "wifi_client_data"
 # Initialize MongoDB client
 client = MongoClient(MONGO_URI)
 db = client[DATABASE_NAME]
-
-# Create a time-series collection if it doesn't exist
-try:
-    db.create_collection(
-        COLLECTION_NAME,
-        timeseries={"timeField": "timestamp", "metaField": "metadata", "granularity": "seconds"}
-    )
-    print(f"Time-series collection '{COLLECTION_NAME}' created.")
-except Exception as e:
-    if "already exists" in str(e):
-        print(f"Time-series collection '{COLLECTION_NAME}' already exists.")
-    else:
-        raise
 
 def run_script_periodically():
     """Run the Python script every 15 seconds and save results to MongoDB."""
@@ -69,8 +55,16 @@ def run_script_periodically():
 def handle_preflight():
     if request.method == "OPTIONS":
         res = Response()
-        res.headers['X-Content-Type-Options'] = '*'
+        res.headers['Access-Control-Allow-Origin'] = '*'  # Allow all origins
+        res.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        res.headers['Access-Control-Allow-Headers'] = 'Content-Type'
         return res
+
+@app.route('/check-status', methods=['GET'])
+def check_status():
+    """Check the status of all devices."""
+    results = get_status()
+    return jsonify(results)
 
 @app.route('/')
 def health_check():
@@ -92,4 +86,6 @@ def update_button_id():
 threading.Thread(target=run_script_periodically, daemon=True).start()
 
 if __name__ == '__main__':
+    CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins
+    app.use(CORS()) 
     app.run(host='0.0.0.0', port=5050, debug=True)
