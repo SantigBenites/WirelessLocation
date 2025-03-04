@@ -3,7 +3,7 @@ import './App.css'; // Import the CSS file
 
 // Function to get the current time
 const getCurrentTime = () => new Date().toISOString();
-const url = "localhost:5050"; // API base URL
+const url = "127.0.0.1:5050"; // API base URL
 
 const App = () => {
   const [activeButton, setActiveButton] = useState(null);
