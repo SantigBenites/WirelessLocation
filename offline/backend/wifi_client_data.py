@@ -33,24 +33,43 @@ pico_names= [
     "Pico10"
 ]
 
+import concurrent.futures
+import requests
+import logging
+
+def fetch_single_pico(pico_ip: str) -> tuple:
+    """Helper function to fetch data from a single Pico W"""
+    try:
+        logging.info(f"Querying Pico W at {pico_ip}...")
+        response = requests.get(f"http://{pico_ip}/scan", timeout=1)
+        if response.status_code == 200:
+            wifi_data = response.json()
+            logging.info(f"Received data from {pico_ip}")
+            return (pico_ip, wifi_data)
+        else:
+            logging.warning(f"Failed to fetch data from {pico_ip}, Status Code: {response.status_code}")
+            return (pico_ip, {"error": f"Status code {response.status_code}"})
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error querying {pico_ip}: {e}")
+        return (pico_ip, {"error": str(e)})
+
 def get_wifi_client_data() -> dict:
-
+    """Fetch WiFi client data from all Pico W devices in parallel"""
     results = {}
-
-    for pico_ip in pico_ips:
-        try:
-            logging.info(f"Querying Pico W at {pico_ip}...")
-            response = requests.get(f"http://{pico_ip}/scan", timeout=5)  # 5-second timeout
-            if response.status_code == 200:
-                wifi_data = response.json()
-                results[pico_ip] = wifi_data
-                logging.info(f"Received data from {pico_ip}")
-            else:
-                logging.warning(f"Failed to fetch data from {pico_ip}, Status Code: {response.status_code}")
-                results[pico_ip] = {"error": f"Status code {response.status_code}"}
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Error querying {pico_ip}: {e}")
-            results[pico_ip] = {"error": str(e)}
+    
+    # Using ThreadPoolExecutor to parallelize the HTTP requests
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Start the load operations and mark each future with its pico_ip
+        future_to_ip = {executor.submit(fetch_single_pico, pico_ip): pico_ip for pico_ip in pico_ips}
+        
+        for future in concurrent.futures.as_completed(future_to_ip):
+            pico_ip = future_to_ip[future]
+            try:
+                ip, data = future.result()
+                results[ip] = data
+            except Exception as e:
+                logging.error(f"Unexpected error processing {pico_ip}: {e}")
+                results[pico_ip] = {"error": str(e)}
     
     return results
 

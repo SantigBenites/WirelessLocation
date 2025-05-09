@@ -3,7 +3,7 @@ import './App.css'; // Import the CSS file
 
 // Function to get the current time
 const getCurrentTime = () => new Date().toISOString();
-const url = "127.0.0.1:5050"; // API base URL
+const url = "192.168.1.42:5050"; // API base URL
 
 const App = () => {
   const [activeButton, setActiveButton] = useState(null);
@@ -63,31 +63,49 @@ const App = () => {
   const handleApiButtonClick = async () => {
     const currentTime = getCurrentTime();
     const logMessage = `API call executed with value: ${selectedValue} at time: ${currentTime}`;
-    setLogs((prevLogs) => [...prevLogs, logMessage]); // Add the log message to the log state
+    setLogs((prevLogs) => [...prevLogs, logMessage]);
 
     try {
-      const response = await fetch(`http://${url}/update-button-id`, {
+      // First verify the URL is properly formed
+      if (!url) {
+        throw new Error("Backend URL is not configured");
+      }
+
+      const apiUrl = `http://${url}/update-button-id`;
+      setLogs((prevLogs) => [...prevLogs, `Attempting to call: ${apiUrl}`]);
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ buttonId: activeButton + 1, timestamp: currentTime }),
+        body: JSON.stringify({ 
+          buttonId: activeButton + 1, 
+          timestamp: currentTime 
+        }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setLogs((prevLogs) => [...prevLogs, `API call succeeded: ${result.output}`]);
-
-        // Update the square states based on the backend response
-        const newSquareStates = [...squareStates];
-        newSquareStates[activeButton] = result.output === 'true'; // Assuming the backend returns 'true' or 'false'
-        setSquareStates(newSquareStates);
-      } else {
+      if (!response.ok) {
         const errorText = await response.text();
-        setLogs((prevLogs) => [...prevLogs, `API call failed: ${errorText}`]);
+        throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
       }
+
+      const result = await response.json();
+      setLogs((prevLogs) => [...prevLogs, `API call succeeded: ${JSON.stringify(result)}`]);
+
+      // Update the square states based on the backend response
+      const newSquareStates = [...squareStates];
+      newSquareStates[activeButton] = result.output === 'true'; // Assuming the backend returns 'true' or 'false'
+      setSquareStates(newSquareStates);
+
     } catch (error) {
-      setLogs((prevLogs) => [...prevLogs, `Error: ${error.message}`]);
+      const errorMessage = `Network Error: ${error.message}. Please verify:
+      - Backend is running at ${url}
+      - Both devices are on the same network
+      - No firewall blocking port 5050`;
+      
+      setLogs((prevLogs) => [...prevLogs, errorMessage]);
+      console.error("API call failed:", error);
     }
   };
 

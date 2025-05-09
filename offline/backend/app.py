@@ -62,7 +62,7 @@ def run_script_periodically():
                     except Exception as e:
                         print(f"Error running script: {e}")
 
-        time.sleep(3)  # Wait 15 seconds before running again
+        time.sleep(0)  # Wait 15 seconds before running again
 
 @app.before_request
 def handle_preflight():
