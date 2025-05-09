@@ -4,66 +4,133 @@ import json
 import time
 import machine
 
-# Configure Wi-Fi connection
+# -- Configuration --
 SSID = "fun_network"
 PASSWORD = "fun_network"
+WIFI_CHECK_INTERVAL = 10     # seconds between connectivity checks
+MAX_BACKOFF = 32             # max seconds for exponential backoff
+LOG = True
 
+# -- Watchdog Timer (auto-reset if stalled) --
+wdt = machine.WDT(timeout=8000)  # 8 seconds
+
+
+# -- Wi-Fi Setup --
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
 
-# Connect to the specified Wi-Fi network
-if not wlan.isconnected():
-    print("Connecting to Wi-Fi...")
+# Pre-allocated buffer for scan results
+time.sleep(1)
+_scan_buffer = []
+
+def ensure_connection():
+    
+    #Connect to WLAN
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
     wlan.connect(SSID, PASSWORD)
-    while not wlan.isconnected():
+    while wlan.isconnected() == False:
+        if LOG : print('Waiting for connection...')
         time.sleep(1)
-print("Connected to Wi-Fi")
-print("IP Address:", wlan.ifconfig()[0])
+    if LOG : print(wlan.ifconfig())
+
+# Initial connect
+try:
+    if not wlan.isconnected():
+        if LOG : print("hee to Wi-Fi...")
+        ensure_connection()
+    if LOG : print("Connected to Wi-Fi, IP:", wlan.ifconfig()[0])
+except Exception as e:
+    if LOG : print("Failed to set up Wi-Fi:", e)
 
 led = machine.Pin("LED", machine.Pin.OUT)
 led.off()
 led.on()
 
-# Function to perform Wi-Fi scan and return detailed results
+# Reusable HTTP server socket with timeout
+try:
+    addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
+    server = socket.socket()
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.settimeout(5)
+    server.bind(addr)
+    server.listen(1)
+    if LOG : print("Server listening on", addr)
+except Exception as e:
+    if LOG : print("Failed to start server:", e)
+    raise
+
+# Wi-Fi scan function with reusable buffer
 def scan_wifi():
-    networks = wlan.scan()  # Perform the scan
-    result = []
-    for ssid, bssid, channel, rssi, security, hidden in networks:
-        result.append({
-            "SSID": ssid.decode() if ssid else "(hidden)",
-            "BSSID": ":".join(f"{b:02x}" for b in bssid),  # Format BSSID (AP MAC address)
-            "Channel": channel,
-            "RSSI": rssi,
-            "Security": security,
-            "Hidden": hidden
-        })
-    return result
+    _scan_buffer.clear()
+    try:
+        networks = wlan.scan()
+        for ssid, bssid, channel, rssi, security, hidden in networks:
+            _scan_buffer.append({
+                "SSID": ssid.decode() if ssid else "(hidden)",
+                "BSSID": ":".join(f"{b:02x}" for b in bssid),
+                "Channel": channel,
+                "RSSI": rssi,
+                "Security": security,
+                "Hidden": hidden
+            })
+    except OSError as e:
+        if LOG : print("Scan error:", e)
+    return _scan_buffer
 
-# Start the web server
-addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
-server = socket.socket()
-server.bind(addr)
-server.listen(1)
+last_wifi_check = time.time()
 
-print("Web server running on:", addr)
-
-# Serve JSON responses
+# -- Main loop --
 while True:
-    conn, addr = server.accept()
-    print("Connection from:", addr)
-    request = conn.recv(1024).decode("utf-8")
-    print("Request:", request)
+    # Feed the watchdog to avoid reset
+    wdt.feed()
 
-    if "GET /scan" in request:
-        # Perform Wi-Fi scan and return JSON response
-        wifi_results = scan_wifi()
-        response = json.dumps(wifi_results)
-        conn.send("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n")
-        conn.send(response)
-    else:
-        # Default response for unsupported endpoints
-        response = json.dumps({"error": "Invalid endpoint. Use /scan for Wi-Fi results."})
-        conn.send("HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n\r\n")
-        conn.send(response)
+    # Periodic Wi-Fi health check
+    now = time.time()
+    if now - last_wifi_check > WIFI_CHECK_INTERVAL:
+        last_wifi_check = now
+        if not wlan.isconnected():
+            ensure_connection()
 
-    conn.close()
+    try:
+        conn, addr = server.accept()
+    except OSError:
+        continue
+
+    try:
+        if LOG : print("Connection from", addr)
+        conn.settimeout(5)
+        request = conn.recv(1024).decode('utf-8')
+        if LOG : print("Request:", request)
+
+        if "GET /scan" in request:
+            led.off()
+            results = scan_wifi()
+            payload = json.dumps(results)
+            headers = (
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: application/json\r\n"
+                f"Content-Length: {len(payload)}\r\n"
+                "\r\n"
+            )
+            conn.send(headers)
+            conn.send(payload)
+            led.on()
+        else:
+            error_payload = json.dumps({"error": "Invalid endpoint. Use /scan."})
+            headers = (
+                "HTTP/1.1 404 Not Found\r\n"
+                "Content-Type: application/json\r\n"
+                f"Content-Length: {len(error_payload)}\r\n"
+                "\r\n"
+            )
+            conn.send(headers)
+            conn.send(error_payload)
+
+    except OSError as e:
+        if LOG : print("Connection error:", e)
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
