@@ -18,3 +18,8 @@ Use the following comamnds:
 mkdir -p /home/sbenites/mongodb
 chmod -R 700 /home/sbenites/mongodb 
 ```
+
+
+## Show collections documents
+
+db.collectionName.find()

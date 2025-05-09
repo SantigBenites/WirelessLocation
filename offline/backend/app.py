@@ -16,13 +16,19 @@ button_id_lock = threading.Lock()
 script_running_lock = threading.Lock()
 
 # MongoDB configuration
-MONGO_URI = "mongodb://localhost:27017/"
+MONGO_URI = "mongodb://127.0.0.1:28910/"
 DATABASE_NAME = "wifi_data_db"
 COLLECTION_NAME = "wifi_client_data"
 
-# Initialize MongoDB client
-client = MongoClient(MONGO_URI)
-db = client[DATABASE_NAME]
+# Initialize MongoDB client with error handling
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    client.admin.command('ping')  # Test the connection
+    db = client[DATABASE_NAME]
+    print("✅ Successfully connected to MongoDB")
+except Exception as e:
+    print(f"❌ Could not connect to MongoDB: {e}")
+    db = None  # You'll need to handle this in your script logic
 
 def run_script_periodically():
     """Run the Python script every 15 seconds and save results to MongoDB."""
@@ -33,26 +39,28 @@ def run_script_periodically():
             current_button_id = button_id  # Access the shared variable
 
         if current_button_id is not None and is_script_running:
-            try:
                 print(current_button_id)
                 # Get Wi-Fi client data
                 wifi_data = get_wifi_client_data()
 
                 # Save data to the time-series collection
                 for pico_ip, data in wifi_data.items():
-                    document = {
-                        "metadata": {
-                            "button_id": current_button_id,
-                            "pico_ip": pico_ip
-                        },
-                        "data": data,
-                        "timestamp": time.time()
-                    }
-                    db[COLLECTION_NAME].insert_one(document)
-
-                print(f"Data saved to MongoDB for button ID: {current_button_id}")
-            except Exception as e:
-                print(f"Error running script: {e}")
+                    try:
+                        if data != "error":
+                            document = {
+                                "metadata": {
+                                    "button_id": current_button_id,
+                                    "pico_ip": pico_ip
+                                },
+                                "data": data,
+                                "timestamp": time.time()
+                            }
+                            db[COLLECTION_NAME].insert_one(document)
+                            print(f"Data saved for {pico_ip} with button {current_button_id}")
+                        else:
+                            print(f"Error in {pico_ip}")
+                    except Exception as e:
+                        print(f"Error running script: {e}")
 
         time.sleep(3)  # Wait 15 seconds before running again
 
