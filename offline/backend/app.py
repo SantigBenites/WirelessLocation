@@ -7,6 +7,16 @@ from wifi_client_data import get_wifi_client_data, get_status
 
 app = Flask(__name__)
 
+# Configure CORS properly
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],  # Explicitly list your frontend origins
+        "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
+    }
+})
+
 # Shared variable to store button ID
 button_id = None
 is_script_running = False
@@ -117,5 +127,5 @@ def stop_script():
 threading.Thread(target=run_script_periodically, daemon=True).start()
 
 if __name__ == '__main__':
-    CORS(app)  # Allow all origins
+    # Remove the duplicate CORS(app) here
     app.run(host='0.0.0.0', port=5050, debug=True)
