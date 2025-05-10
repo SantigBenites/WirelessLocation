@@ -88,6 +88,7 @@ def check_status():
     """Check the status of all devices."""
     results = get_status()
     response = jsonify(results)
+    print(response)
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
 

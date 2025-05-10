@@ -8,16 +8,16 @@ import subprocess
 #logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 pico_ips = [
-        "192.168.1.31/scan",
-        "192.168.1.32/scan",
-        "192.168.1.33/scan",
-        "192.168.1.34/scan",
-        "192.168.1.35/scan",
-        "192.168.1.36/scan",
-        "192.168.1.37/scan",
-        "192.168.1.38/scan",
-        "192.168.1.39/scan",
-        "192.168.1.30/scan",
+        "192.168.1.31",
+        "192.168.1.32",
+        "192.168.1.33",
+        "192.168.1.34",
+        "192.168.1.35",
+        "192.168.1.36",
+        "192.168.1.37",
+        "192.168.1.38",
+        "192.168.1.39",
+        "192.168.1.30",
 ]
 
 pico_names= [
@@ -75,20 +75,39 @@ def get_wifi_client_data() -> dict:
 
 
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
+
+def ping_ip(ip):
+    """Helper function to ping a single IP"""
+    try:
+        subprocess.run(
+            ["ping", "-c", "1", "-W", "1", ip],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 def get_status():
+    """Check status of all IPs in parallel"""
+    # Assuming pico_names and pico_ips are defined elsewhere
     results = {}
-    for key, ip in zip(pico_names, pico_ips):
-        try:
-            # Run the ping command with a timeout of 1 second and 1 attempt
-            completed_process = subprocess.run(
-                ["ping", "-c", "1", "-W", "1", ip],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True  # Raise an exception if the command fails
-            )
-            results[key] = True
-        except subprocess.CalledProcessError:
-            # If the ping command fails, the IP is not reachable
-            results[key] = False
+    
+    # Create a dictionary mapping names to IPs
+    ip_mapping = dict(zip(pico_names, pico_ips))
+    
+    with ThreadPoolExecutor() as executor:
+        # Submit all ping tasks at once
+        future_to_name = {
+            name: executor.submit(ping_ip, ip)
+            for name, ip in ip_mapping.items()
+        }
+        
+        # Collect results as they complete
+        for name, future in future_to_name.items():
+            results[name] = future.result()
+    
     return results
+

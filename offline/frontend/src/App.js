@@ -134,9 +134,11 @@ const App = () => {
 
   const makeApiCallForSquare = useCallback(async () => {
     try {
+      console.log("hello")
       const response = await fetch(`http://${url}/check-status`);
+      console.log("hello2")
       const results = await response.json();
-  
+      console.log(results)
       setSquareStates((prevStates) => {
         const newStates = [...prevStates];
 
@@ -146,7 +148,7 @@ const App = () => {
           const index = reverse_squareDict[key] - 1; // Subtract 1 because array indices start at 0
           newStates[index] = results[key]; // Update the corresponding square state
         });
-
+    
         return newStates;
       });
     } catch (error) {
