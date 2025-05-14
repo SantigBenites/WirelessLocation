@@ -11,9 +11,15 @@ WIFI_CHECK_INTERVAL = 10     # seconds between connectivity checks
 MAX_BACKOFF = 32             # max seconds for exponential backoff
 LOG = True
 
+led = machine.Pin("LED", machine.Pin.OUT)
+
 # -- Watchdog Timer (auto-reset if stalled) --
 wdt = machine.WDT(timeout=8000)  # 8 seconds
 
+
+led.on()
+time.sleep(1)
+led.off()
 
 # -- Wi-Fi Setup --
 wlan = network.WLAN(network.STA_IF)
@@ -43,7 +49,6 @@ try:
 except Exception as e:
     if LOG : print("Failed to set up Wi-Fi:", e)
 
-led = machine.Pin("LED", machine.Pin.OUT)
 led.off()
 led.on()
 
