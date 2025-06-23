@@ -1,2 +1,4 @@
 /offline/frontend/node_modules/
 data_processing/database
+data_processing/parallel_grid_search/data_dir/*
+data_processing/parallel_grid_search/data_dir
