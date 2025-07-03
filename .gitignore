@@ -2,3 +2,7 @@
 data_processing/database
 data_processing/parallel_grid_search/data_dir/*
 data_processing/parallel_grid_search/data_dir
+data_processing/parallel_grid_search/model_performance/*
+data_processing/parallel_grid_search/model_performance/
+data_processing/parallel_grid_search/__pycache__/
+data_processing/parallel_grid_search/__pycache__/*
