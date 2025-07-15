@@ -25,8 +25,15 @@ def train_model_worker(rank, model_index, config, result_queue, X_train, y_train
             epochs=epochs,
             progress_bar=pbar
         )
+    
+    for key in ['val_predictions', 'train_predictions']:
+        if key in result and isinstance(result[key], torch.Tensor):
+            result[key] = result[key].detach().cpu().numpy()
 
-    save_model_performance_immediately(result)
+    try:
+        save_model_performance_immediately(result)
+    except Exception as e:
+        print(f"Error saving model performance: {e}")
     result['gpu_used'] = rank
     result['model_index'] = model_index
     result_queue.put(result)
@@ -55,6 +62,7 @@ def train_single_model(rank, model_config, X_train, y_train, X_val, y_val, epoch
     torch.cuda.empty_cache()  # Clear cache before starting
 
     # Memory optimization - use memory-mapped files
+    os.makedirs("data_dir", exist_ok=True)
     train_mmap_path = os.path.join("data_dir", f'train_data_{rank}.npy')
     val_mmap_path = os.path.join("data_dir", f'val_data_{rank}.npy')
     
@@ -244,12 +252,14 @@ def train_single_model(rank, model_config, X_train, y_train, X_val, y_val, epoch
         'model': model.cpu(),
         'model_name': model_config['name'],
         'params': model_config['params'],
+        'config': model_config['config'],
         'train_rmse': np.sqrt(mean_squared_error(y_train, train_preds)),
         'val_rmse': np.sqrt(mean_squared_error(y_val, val_preds)),
         'train_mae': mean_absolute_error(y_train, train_preds),
         'val_mae': mean_absolute_error(y_val, val_preds),
         'train_r2': r2_score(y_train, train_preds),
         'val_r2': r2_score(y_val, val_preds),
+        'val_score': r2_score(y_val, val_preds),
         'train_loss_history': train_loss_history,
         'val_loss_history': val_loss_history,
         'training_time': progress_bar.format_dict['elapsed'] if progress_bar else 0,

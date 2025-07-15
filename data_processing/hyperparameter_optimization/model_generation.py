@@ -1,4 +1,4 @@
-import torch
+import torch, copy, random
 import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
@@ -91,7 +91,7 @@ class GeneratedModel(nn.Module):
         position = self.output_layer(x)
         uncertainty = torch.sigmoid(self.uncertainty_layer(x)) if self.uncertainty_layer else None
         
-        return position, uncertainty
+        return position#, uncertainty
 
 def generate_model_configs(search_space=grid_search_space):
     keys, values = zip(*search_space.items())
@@ -117,7 +117,6 @@ def generate_model_configs(search_space=grid_search_space):
             'attention': config['attention'],
             'uncertainty_estimation': config['uncertainty_estimation'],
             'residual_connections': config.get('residual', False),
-            'use_checkpointing': config.get('checkpointing', False)
         }
         
         configs.append({
@@ -130,122 +129,106 @@ def generate_model_configs(search_space=grid_search_space):
 
 
 
-import random
-
 def generate_random_model_configs(search_space=random_search_space, number_of_models=10):
     keys = list(search_space.keys())
     configs = []
 
     for i in range(number_of_models):
-        sample = {key: random.choice(search_space[key]) for key in keys}
+        while True:
+            sample = {key: random.choice(search_space[key]) for key in keys}
 
-        hidden_layers = []
-        for _ in range(sample['num_layers']):
-            layer_spec = {
-                'units': sample['layer_size'],
-                'activation': sample['activation'],
-                'normalization': 'batch' if sample['batch_norm'] else 'none',
-                'use_dropout': sample['use_dropout'],
-                'dropout': sample['dropout'] if sample['use_dropout'] else None,
-                'initialization': sample['initialization']
-            }
-            hidden_layers.append(layer_spec)
+            # Check attention constraints
+            if sample['attention'] and sample['layer_size'] % 4 != 0:
+                continue  # regenerate sample if layer_size is not divisible by 4
 
-        architecture_config = {
-            'hidden_layers': hidden_layers,
-            'attention': sample['attention'],
-            'uncertainty_estimation': sample['uncertainty_estimation'],
-            'residual_connections': sample.get('residual_connections', False),
-            'use_checkpointing': sample.get('checkpointing', False)
-        }
+            hidden_layers = []
+            for _ in range(sample['num_layers']):
+                layer_spec = {
+                    'units': sample['layer_size'],
+                    'activation': sample['activation'],
+                    'normalization': 'batch' if sample['batch_norm'] else 'none',
+                    'use_dropout': sample['use_dropout'],
+                    'dropout': sample['dropout'] if sample['use_dropout'] else 0.0,
+                    'initialization': sample['initialization']
+                }
+                hidden_layers.append(layer_spec)
 
-        configs.append({
-            'name': f"RandomModel_{i}",
-            'config': architecture_config,
-            'params': sample
-        })
+            configs.append({
+                'name': f"RandomModel_{i}",
+                'config': {
+                    'activation': sample['activation'],
+                    'hidden_layers': hidden_layers,
+                    'attention': sample['attention'],
+                    'uncertainty_estimation': sample['uncertainty_estimation'],
+                    'residual_connections': sample.get('residual_connections', False),
+                },
+                'params': sample
+            })
+            break  # break loop when valid sample is found
 
     return configs
 
-import copy
 
 def generate_similar_model_configs(base_model, search_space=random_search_space, number_of_models=10, variation_factor=0.2):
-    """
-    Generate similar model configurations based on an existing model with slight variations.
-    
-    Args:
-        base_model: The original model configuration to base variations on
-        search_space: The namespace defining possible values for each parameter
-        number_of_models: How many similar models to generate
-        variation_factor: How much to vary parameters (0.0-1.0)
-        
-    Returns:
-        List of similar model configurations
-    """
     configs = []
     base_params = base_model['params']
     
     for i in range(number_of_models):
-        # Create a copy of the base params to modify
-        new_params = copy.deepcopy(base_params)
-        
-        # Modify each parameter with some probability based on variation_factor
-        for key in new_params:
-            if key in search_space and random.random() < variation_factor:
-                # For numerical parameters, add small random variation
-                if isinstance(new_params[key], (int, float)):
-                    current_val = new_params[key]
-                    options = [x for x in search_space[key] if isinstance(x, (int, float))]
-                    if options:
-                        min_val = min(options)
-                        max_val = max(options)
-                        # Add random noise within 10% of the parameter range
-                        noise = (random.random() - 0.5) * (max_val - min_val) * 0.1
-                        new_val = current_val + noise
-                        # Clip to valid range
-                        new_val = max(min_val, min(max_val, new_val))
-                        # Round if original was int
-                        if isinstance(current_val, int):
-                            new_val = int(round(new_val))
-                        new_params[key] = new_val
-                # For categorical parameters, sometimes pick a nearby option
-                else:
-                    options = search_space[key]
-                    try:
-                        current_index = options.index(new_params[key])
-                        # Move up or down 1-2 positions with wrap-around
-                        shift = random.choice([-2, -1, 1, 2])
-                        new_index = (current_index + shift) % len(options)
-                        new_params[key] = options[new_index]
-                    except ValueError:
-                        # Current value not in options, pick randomly
-                        new_params[key] = random.choice(options)
-        
-        # Rebuild the hidden layers based on the new parameters
-        hidden_layers = []
-        for _ in range(new_params['num_layers']):
-            layer_spec = {
-                'units': new_params['layer_size'],
+        while True:
+            new_params = copy.deepcopy(base_params)
+
+            for key in new_params:
+                if key in search_space and random.random() < variation_factor:
+                    if isinstance(new_params[key], (int, float)):
+                        current_val = new_params[key]
+                        options = [x for x in search_space[key] if isinstance(x, (int, float))]
+                        if options:
+                            min_val = min(options)
+                            max_val = max(options)
+                            noise = (random.random() - 0.5) * (max_val - min_val) * 0.1
+                            new_val = current_val + noise
+                            new_val = max(min_val, min(max_val, new_val))
+                            if isinstance(current_val, int):
+                                new_val = int(round(new_val))
+                            new_params[key] = new_val
+                    else:
+                        options = search_space[key]
+                        try:
+                            current_index = options.index(new_params[key])
+                            shift = random.choice([-2, -1, 1, 2])
+                            new_index = (current_index + shift) % len(options)
+                            new_params[key] = options[new_index]
+                        except ValueError:
+                            new_params[key] = random.choice(options)
+
+            # Enforce attention constraints
+            if new_params['attention'] and new_params['layer_size'] % 4 != 0:
+                continue  # regenerate if not divisible by 4
+
+            hidden_layers = []
+            for _ in range(new_params['num_layers']):
+                layer_spec = {
+                    'units': new_params['layer_size'],
+                    'activation': new_params['activation'],
+                    'normalization': 'batch' if new_params['batch_norm'] else 'none',
+                    'use_dropout': new_params['use_dropout'],
+                    'dropout': new_params['dropout'] if new_params['use_dropout'] else 0.0,
+                    'initialization': new_params['initialization']
+                }
+                hidden_layers.append(layer_spec)
+
+            architecture_config = {
                 'activation': new_params['activation'],
-                'normalization': 'batch' if new_params['batch_norm'] else 'none',
-                'use_dropout': new_params['use_dropout'],
-                'dropout': new_params['dropout'] if new_params['use_dropout'] else None,
-                'initialization': new_params['initialization']
+                'hidden_layers': hidden_layers,
+                'attention': new_params['attention'],
+                'uncertainty_estimation': new_params['uncertainty_estimation'],
+                'residual_connections': new_params.get('residual_connections', False),
             }
-            hidden_layers.append(layer_spec)
-        
-        architecture_config = {
-            'hidden_layers': hidden_layers,
-            'attention': new_params['attention'],
-            'uncertainty_estimation': new_params['uncertainty_estimation'],
-            'residual_connections': new_params.get('residual_connections', False),
-            'use_checkpointing': new_params.get('checkpointing', False)
-        }
-        
-        configs.append({
-            'name': f"SimilarModel_{base_model['name']}_{i}",
-            'config': architecture_config,
-            'params': new_params
-        })
-    
-    return configs
+
+            configs.append({
+                'name': f"SimilarModel_{base_model['name']}_{i}",
+                'config': architecture_config,
+                'params': new_params
+            })
+            break  # exit loop if config is valid
+    return configs  # ✅ Add this

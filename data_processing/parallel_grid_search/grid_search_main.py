@@ -1,5 +1,5 @@
 from model_generation import generate_model_configs
-from data_processing.parallel_grid_search.search_lib import train_model_worker , MAX_MODELS_PER_GPU
+from search_lib import train_model_worker , MAX_MODELS_PER_GPU
 import time
 from tqdm import tqdm
 import torch

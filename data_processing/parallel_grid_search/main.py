@@ -1,5 +1,5 @@
 from grid_search_main import run_model_parallel_grid_search
-from gradient_search_main import run_gradient_based_search
+from gradient_search import run_model_parallel_gradient_search
 from monitoring import generate_comprehensive_summary
 from data_processing import get_dataset,combine_arrays,shuffle_array,split_combined_data
 from sklearn.model_selection import train_test_split
@@ -39,18 +39,16 @@ if __name__ == '__main__':
                 y_train=y_train,
                 X_val=X_val,
                 y_val=y_val,
-                search_space=search_space,
-                epochs=200
+                epochs=50
             )
         elif SEARCH == 'GRADIENT':
-            results = run_gradient_based_search(
+            results = run_model_parallel_gradient_search(
             X_train=X_train,
             y_train=y_train,
             X_val=X_val,
             y_val=y_val,
-            search_space=search_space,
-            epochs=200,
-            num_trials=50  # Number of hyperparameter optimization steps
+            epochs=20,
+            training_depth=5
             )
 
             # The best model results are in results['final_result']
