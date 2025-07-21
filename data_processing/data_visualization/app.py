@@ -14,49 +14,101 @@ collection = db["wifi_client_data_global"]
 # Triangle metadata
 # Your triangle dictionary
 triangle_dictionary = {
-    "reto_grande": {
+    "reto_grande_wifi_client_data_global": {
         "start":datetime(2025, 5, 13, 20, 10),
         "end":datetime(2025, 5, 13, 21, 42),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "reto_medio": {
+    "reto_medio_wifi_client_data_global": {
         "start":datetime(2025, 5, 13, 21, 46),
         "end":datetime(2025, 5, 13, 22, 49),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "reto_pequeno": {
+    "reto_pequeno_wifi_client_data_global": {
         "start":datetime(2025, 5, 13, 22, 51),
         "end":datetime(2025, 5, 13, 23, 53),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "equilatero_grande": {
+    "equilatero_grande_wifi_client_data_global": {
         "start":datetime(2025, 6, 28, 19, 45),
         "end":datetime(2025, 6, 28, 21, 15),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "equilatero_medio": {
+    "equilatero_medio_wifi_client_data_global": {
         "start":datetime(2025, 6, 28, 22, 5),
         "end":datetime(2025, 6, 28, 23, 30),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "isosceles_grande": {
+    "isosceles_grande_wifi_client_data_global": {
         "start":datetime(2025, 7, 5, 12, 20),
         "end":datetime(2025, 7, 5, 13, 10),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "isosceles_medio": {
+    "isosceles_medio_wifi_client_data_global": {
         "start":datetime(2025, 7, 5, 13, 24),
         "end":datetime(2025, 7, 5, 14, 30),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "reto_n_quadrado_grande": {
+    "reto_n_quadrado_grande_wifi_client_data_global": {
         "start":datetime(2025, 7, 5, 15, 4),
         "end":datetime(2025, 7, 5, 15, 54),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "reto_n_quadrado_pequeno": {
+    "reto_n_quadrado_pequeno_wifi_client_data_global": {
         "start":datetime(2025, 7, 5, 15, 55),
         "end":datetime(2025, 7, 5, 16, 42),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "obtusangulo_grande": {
+    "obtusangulo_grande_wifi_client_data_global": {
         "start":datetime(2025, 7, 5, 16, 43),
         "end":datetime(2025, 7, 5, 17, 29),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
     },
-    "obtusangulo_pequeno": {
+    "obtusangulo_pequeno_wifi_client_data_global": {
         "start":datetime(2025, 7, 5, 17, 30),
         "end":datetime(2025, 7, 5, 19, 00),
+        "db": "wifi_data_db",
+        "collection": "wifi_client_data_global"
+    },
+    "reto_grande_wifi_client_data_garage": {
+        "start": datetime(2025, 7, 19, 11, 27),
+        "end": datetime(2025, 7, 19, 12, 29),
+        "db": "wifi_data_db_garage",
+        "collection": "wifi_client_data_garage"
+    },
+    "reto_medio_wifi_client_data_garage": {
+        "start": datetime(2025, 7, 19, 12, 31),
+        "end": datetime(2025, 7, 19, 14, 7),
+        "db": "wifi_data_db_garage",
+        "collection": "wifi_client_data_garage"
+    },
+    "reto_pequeno_wifi_client_data_garage": {
+        "start": datetime(2025, 7, 19, 14, 11),
+        "end": datetime(2025, 7, 19, 15, 4),
+        "db": "wifi_data_db_garage",
+        "collection": "wifi_client_data_garage"
+    },
+    "equilatero_grande_wifi_client_data_garage": {
+        "start": datetime(2025, 7, 19, 15, 5),
+        "end": datetime(2025, 7, 19, 15, 50),
+        "db": "wifi_data_db_other",
+        "collection": "wifi_client_data_garage"
+    },
+    "equilatero_medio_wifi_client_data_garage": {
+        "start": datetime(2025, 7, 19, 15, 58),
+        "end": datetime(2025, 7, 19, 18, 0),
+        "db": "wifi_data_db_other",
+        "collection": "wifi_client_data_garage"
     },
 }
 
@@ -64,9 +116,15 @@ triangle_dictionary = {
 custom_pico_order = [31, 32, 33, 34, 35, 36, 37, 38, 39, 30]
 pico_mapping = {val: idx for idx, val in enumerate(custom_pico_order)}
 
+def get_collection(info):
+    return client[info["db"]][info["collection"]]
+
+
 # Cache the BSSIDs used per experiment
 def get_bssids_for_experiment(exp_name):
     info = triangle_dictionary[exp_name]
+    collection = get_collection(info)
+
     pipeline = [
         {
             "$match": {
@@ -83,6 +141,7 @@ def get_bssids_for_experiment(exp_name):
     ]
     return [x["_id"] for x in collection.aggregate(pipeline)]
 
+
 experiment_bssids = {
     name: get_bssids_for_experiment(name)
     for name in triangle_dictionary
@@ -90,6 +149,7 @@ experiment_bssids = {
 
 def build_surface(name, bssid):
     info = triangle_dictionary[name]
+    collection = get_collection(info)
     start_time = info["start"].timestamp()
     end_time = info["end"].timestamp()
 
@@ -141,6 +201,7 @@ def build_surface(name, bssid):
     ]
 
     data = list(collection.aggregate(pipeline))
+
     if not data:
         return None
 
