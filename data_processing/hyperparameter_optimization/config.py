@@ -9,7 +9,7 @@ class TrainingConfig:
     # Training settings
     epochs: int = 20
     training_depth: int = 10
-    models_per_depth: int = 6
+    models_per_depth: int = 12
     num_gpus: int = 6
     group_name: str = "gradient_search_global"
 

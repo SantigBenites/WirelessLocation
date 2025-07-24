@@ -6,3 +6,13 @@ data_processing/parallel_grid_search/model_performance/*
 data_processing/parallel_grid_search/model_performance/
 data_processing/parallel_grid_search/__pycache__/
 data_processing/parallel_grid_search/__pycache__/*
+data_processing/hyperparameter_optimization/checkpoints/*
+data_processing/hyperparameter_optimization/checkpoints
+data_processing/hyperparameter_optimization/lightning_logs/*
+data_processing/hyperparameter_optimization/lightning_logs
+data_processing/hyperparameter_optimization/logs/*
+data_processing/hyperparameter_optimization/logs
+data_processing/hyperparameter_optimization/wandb/*
+data_processing/hyperparameter_optimization/wandb
+data_processing/hyperparameter_optimization/wifi-rssi-gradient-search/*
+data_processing/hyperparameter_optimization/wifi-rssi-gradient-search
