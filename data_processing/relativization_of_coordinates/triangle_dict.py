@@ -185,3 +185,37 @@ triangle_dictionary = {
         }
     },
 }
+
+
+triangle_dictionary_indoor = {
+    "reto_grande_indoor": {
+        "triangle_name" : "reto_grande",
+        "db": "wifi_data_db_indoor",
+        "collection": "wifi_data_indoor_global",
+        "ap_positions":{
+            "freind1" : (0,0),
+            "freind2" : (5,0),
+            "freind3" : (0,5)
+        }
+    },
+    "isosceles_grande_indoor": {
+        "triangle_name" : "isosceles_grande",
+        "db": "wifi_data_db_indoor",
+        "collection": "wifi_data_indoor_global",
+        "ap_positions":{
+            "freind1" : (0,0),
+            "freind2" : (2.5,5),
+            "freind3" : (0,5)
+        }
+    },
+    "reto_n_quadrado_grande_indoor": {
+        "triangle_name" : "reto_n_quadrado_grande",
+        "db": "wifi_data_db_indoor",
+        "collection": "wifi_data_indoor_global",
+        "ap_positions":{
+            "freind1" : (2.5,0),
+            "freind2" : (2.5,5),
+            "freind3" : (0,5)
+        }
+    },
+}
