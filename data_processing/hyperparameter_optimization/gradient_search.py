@@ -1,5 +1,5 @@
 # gradient_search.py
-import ray
+import ray, torch
 from model_generation import generate_random_model_configs, generate_similar_model_configs
 from config import TrainingConfig
 from gpu_fucntion import train_model_ray
@@ -10,6 +10,10 @@ def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config):
         ray.init(log_to_driver=False)
 
     # Put data into Ray object store once
+    X_train = torch.tensor(X_train, dtype=torch.float32)
+    y_train = torch.tensor(y_train, dtype=torch.float32)
+    X_val = torch.tensor(X_val, dtype=torch.float32)
+    y_val = torch.tensor(y_val, dtype=torch.float32)
     train_ref = ray.put((X_train, y_train))
     val_ref = ray.put((X_val, y_val))
 

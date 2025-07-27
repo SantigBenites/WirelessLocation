@@ -65,15 +65,15 @@ def get_least_used_gpu():
     pynvml.nvmlShutdown()
     return str(best_gpu)
 
+import wandb
+from pytorch_lightning.loggers import WandbLogger
+import time
 
 @ray.remote(num_gpus=0.50)
 def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False):
-    import wandb
-    from pytorch_lightning.loggers import WandbLogger
-    import time
 
-    selected_gpu = get_least_used_gpu()
-    os.environ["CUDA_VISIBLE_DEVICES"] = selected_gpu
+    #selected_gpu = get_least_used_gpu()
+    #os.environ["CUDA_VISIBLE_DEVICES"] = selected_gpu
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     warnings.filterwarnings("ignore")
 
@@ -81,10 +81,6 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
     X_val, y_val = val_data_ref
 
     try:
-        X_train = torch.tensor(X_train, dtype=torch.float32)
-        y_train = torch.tensor(y_train, dtype=torch.float32)
-        X_val = torch.tensor(X_val, dtype=torch.float32)
-        y_val = torch.tensor(y_val, dtype=torch.float32)
 
         for attempt in range(100):  # Retry up to 10 times
             try:
@@ -159,7 +155,7 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
             except Exception as e:
                 import traceback
                 traceback_str = traceback.format_exc()
-                print(f"⚠️ Error in {config_dict.get('name', 'unknown')} (attempt {attempt + 1}/10):\n{traceback_str}")
+                print(f"⚠️ Error {e}")
                 import sys
                 sys.stdout.flush()
                 if use_wandb:
