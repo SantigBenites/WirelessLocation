@@ -1,11 +1,14 @@
 from gradient_search import run_model_parallel_gradient_search
-from gpu_fucntion import train_model_ray
 from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data
 from sklearn.model_selection import train_test_split
 import torch, time, pickle, os
 from config import TrainingConfig
 import logging, warnings
-import ray
+import multiprocessing
+
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ['CUDA_LAUNCH_BLOCKING']="1"
+os.environ['TORCH_USE_CUDA_DSA'] = "1"
 
 # Configure environment
 torch.set_float32_matmul_precision('high')
@@ -71,6 +74,7 @@ def load_and_process_data(train_collections, db_name="wifi_fingerprinting_data")
 if __name__ == '__main__':
     try:
         config = TrainingConfig()
+        multiprocessing.set_start_method("spawn", force=True)
 
         experiments = {
             "outdoor_only": group_by_location(all_collections, ["outdoor"]),

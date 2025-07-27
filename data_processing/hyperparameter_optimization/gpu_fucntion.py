@@ -1,12 +1,13 @@
-import os, torch, wandb, warnings, ray, gc, time
+import os, torch, warnings, gc, time, sys
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping
 import pytorch_lightning as pl
 from model_generation import GeneratedModel
-
 import pynvml
+import wandb
+
 
 class LightningWrapper(pl.LightningModule):
     def __init__(self, model: torch.nn.Module, train_data, val_data, learning_rate, weight_decay):
@@ -36,7 +37,6 @@ class LightningWrapper(pl.LightningModule):
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
         return {"val_loss": loss}
 
-
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         return {
@@ -65,21 +65,40 @@ def get_least_used_gpu():
     pynvml.nvmlShutdown()
     return str(best_gpu)
 
-import wandb
-from pytorch_lightning.loggers import WandbLogger
-import time, sys
 
-@ray.remote(num_gpus=0.5, max_calls=1)
-def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False):
+def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False, gpu_id="0"):
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)  # only expose this GPU
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["WANDB_SILENT"] = "true"
+    os.environ["WANDB_DISABLE_CODE"] = "true"
+    os.environ["WANDB_CONSOLE"] = "off"
+    os.environ["WANDB_START_METHOD"] = "thread"
+
+    import torch
+    import gc
+    import warnings
     warnings.filterwarnings("ignore")
+
+    # Delay any CUDA access until now
+    torch.cuda.empty_cache()
+
+    print(f"🚀 Assigned to physical GPU {gpu_id} (CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}, "
+          f"current_device={torch.cuda.current_device()}, "
+          f"device_name={torch.cuda.get_device_name(torch.cuda.current_device())})")
+
+    from torch.utils.data import DataLoader, TensorDataset
+    from pytorch_lightning import Trainer
+    from pytorch_lightning.loggers import WandbLogger
+    from pytorch_lightning.callbacks import EarlyStopping
+    import wandb
+    from model_generation import GeneratedModel
+    from gpu_fucntion import LightningWrapper
 
     X_train, y_train = train_data_ref
     X_val, y_val = val_data_ref
 
     try:
-        print(f"🖥️  Starting model {config_dict['name']} on device: {torch.cuda.current_device()} ({torch.cuda.get_device_name(torch.cuda.current_device())})")
-        sys.stdout.flush()
         for attempt in range(100):
             try:
                 model = GeneratedModel(
@@ -105,7 +124,6 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
                         log_model=True
                     )
                     wandb_logger.watch(model, log="all", log_freq=100)
-
                     wandb.config.update({
                         "model_index": model_index,
                         "group_name": config.group_name,
@@ -127,14 +145,13 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
                     enable_model_summary=True,
                     callbacks=[EarlyStopping(monitor="val_loss", patience=3)],
                     accelerator="gpu",
-                    devices=1,
+                    devices=[0],  # we masked visible device to this one GPU, so [0] is safe
                     log_every_n_steps=50,
                 )
 
                 trainer.fit(lightning_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
                 val_loss = trainer.callback_metrics.get("val_loss", None)
-
                 if use_wandb:
                     wandb.log({"final_val_loss": val_loss.item() if val_loss else float('inf')})
 
@@ -146,10 +163,11 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
 
             except Exception as e:
                 import traceback
-                print(f"⚠️ Error {e}")
+                print(f"⚠️ Error: {e}")
                 traceback.print_exc()
                 torch.cuda.empty_cache()
                 gc.collect()
+                import time
                 time.sleep(5)
 
         return {
