@@ -67,13 +67,10 @@ def get_least_used_gpu():
 
 import wandb
 from pytorch_lightning.loggers import WandbLogger
-import time
+import time, sys
 
-@ray.remote(num_gpus=0.50)
+@ray.remote(num_gpus=0.5, max_calls=1)
 def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False):
-
-    #selected_gpu = get_least_used_gpu()
-    #os.environ["CUDA_VISIBLE_DEVICES"] = selected_gpu
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     warnings.filterwarnings("ignore")
 
@@ -81,8 +78,9 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
     X_val, y_val = val_data_ref
 
     try:
-
-        for attempt in range(100):  # Retry up to 10 times
+        print(f"🖥️  Starting model {config_dict['name']} on device: {torch.cuda.current_device()} ({torch.cuda.get_device_name(torch.cuda.current_device())})")
+        sys.stdout.flush()
+        for attempt in range(100):
             try:
                 model = GeneratedModel(
                     input_size=X_train.shape[1],
@@ -119,8 +117,8 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
                     })
 
                 batch_size = max(config.default_batch_size // (2 ** attempt), 8)
-                train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, num_workers=2)
-                val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, num_workers=2)
+                train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, num_workers=0)
+                val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, num_workers=0)
 
                 trainer = Trainer(
                     max_epochs=config.epochs,
@@ -139,12 +137,6 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
 
                 if use_wandb:
                     wandb.log({"final_val_loss": val_loss.item() if val_loss else float('inf')})
-                    wandb.finish()
-
-                torch.cuda.empty_cache()
-                gc.collect()
-
-                print("🏁 Finished training")
 
                 return {
                     **config_dict,
@@ -154,40 +146,32 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
 
             except Exception as e:
                 import traceback
-                traceback_str = traceback.format_exc()
                 print(f"⚠️ Error {e}")
-                import sys
-                sys.stdout.flush()
-                if use_wandb:
-                    try:
-                        wandb.finish()
-                    except:
-                        pass
+                traceback.print_exc()
                 torch.cuda.empty_cache()
                 gc.collect()
                 time.sleep(5)
 
-        # If all retries fail
         return {
             **config_dict,
             "val_loss": float("inf"),
             "status": "failed",
-            "error": f"Training failed after 100 attempts"
+            "error": "Training failed after 100 attempts"
         }
 
     except Exception as e:
-        if use_wandb:
-            try:
-                wandb.finish()
-            except:
-                pass
-
-        torch.cuda.empty_cache()
-        gc.collect()
-
         return {
             **config_dict,
             "val_loss": float("inf"),
             "status": "failed",
             "error": str(e)
         }
+
+    finally:
+        if use_wandb:
+            try:
+                wandb.finish()
+            except:
+                pass
+        torch.cuda.empty_cache()
+        gc.collect()

@@ -82,8 +82,8 @@ if __name__ == '__main__':
             "all_data": all_collections,
         }
 
-        if not ray.is_initialized():
-            ray.init(num_cpus=24, log_to_driver=False)
+
+
 
         for experiment_name, train_collections in experiments.items():
             print(f"\n\U0001f52c Starting experiment: {experiment_name}")
