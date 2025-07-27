@@ -1,11 +1,22 @@
-import torch, multiprocessing, time
+import multiprocessing, time, os
 from model_generation import generate_random_model_configs, generate_similar_model_configs
 from config import TrainingConfig
-from gpu_fucntion import train_model
 
-def _train_model_wrapper(cfg, train_data_ref, val_data_ref, model_index, config, gpu_id, return_dict, gpu_slots):
+def _train_model_wrapper(cfg, train_data_ref, val_data_ref,
+                         model_index, config, gpu_id,
+                         return_dict, gpu_slots):
+    """
+    Runs inside a **fresh child process**.
+    We must decide which GPU it sees *before* importing torch.
+    """
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)  # expose only this GPU
+
+    # Delay heavy imports until after masking
+    from gpu_fucntion import train_model
+
     try:
-        print(f"🎯 Starting model {cfg['name']} on GPU {gpu_id}")
+        print(f"🎯 Starting model {cfg['name']} on physical GPU {gpu_id}")
         result = train_model(
             config_dict=cfg,
             train_data_ref=train_data_ref,
@@ -13,7 +24,7 @@ def _train_model_wrapper(cfg, train_data_ref, val_data_ref, model_index, config,
             model_index=model_index,
             config=config,
             use_wandb=False,
-            gpu_id=gpu_id
+            gpu_id=gpu_id,
         )
         return_dict[model_index] = result
     except Exception as e:
@@ -29,6 +40,7 @@ def _train_model_wrapper(cfg, train_data_ref, val_data_ref, model_index, config,
 
 def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config: TrainingConfig):
 
+    import torch
     X_train = torch.tensor(X_train, dtype=torch.float32)
     y_train = torch.tensor(y_train, dtype=torch.float32)
     X_val = torch.tensor(X_val, dtype=torch.float32)

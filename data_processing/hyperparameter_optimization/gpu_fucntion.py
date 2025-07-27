@@ -9,8 +9,11 @@ import pynvml
 import wandb
 
 
-class LightningWrapper(pl.LightningModule):
-    def __init__(self, model: torch.nn.Module, train_data, val_data, learning_rate, weight_decay):
+
+class LightningWrapper(pl.LightningModule):  # noqa: N801
+    def __init__(self, model: torch.nn.Module,
+                train_data, val_data,
+                learning_rate, weight_decay):
         super().__init__()
         self.model = model
         self.train_data = train_data
@@ -27,26 +30,26 @@ class LightningWrapper(pl.LightningModule):
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss_fn(y_hat, y)
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train_loss", loss,
+                on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss_fn(y_hat, y)
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_loss", loss,
+                on_step=False, on_epoch=True, prog_bar=True)
         return {"val_loss": loss}
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=2),
-                "monitor": "val_loss",
-                "frequency": 1,
-            },
-        }
+        optim = torch.optim.Adam(self.parameters(),
+                                lr=self.learning_rate,
+                                weight_decay=self.weight_decay)
+        sched = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optim, patience=2)
+        return {"optimizer": optim,
+                "lr_scheduler": {"scheduler": sched,"monitor": "val_loss","frequency": 1}}
 
 
 def get_least_used_gpu():
@@ -66,7 +69,7 @@ def get_least_used_gpu():
     return str(best_gpu)
 
 
-def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False, gpu_id="0"):
+def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False, gpu_id = "0"):
     import os
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)  # only expose this GPU
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
