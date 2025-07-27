@@ -9,9 +9,11 @@ class TrainingConfig:
     # Training settings
     epochs: int = 20
     training_depth: int = 10
-    models_per_depth: int = 12
+    models_per_depth: int = 10
     num_gpus: int = 6
+    num_cpu = 24
     group_name: str = "gradient_search_global"
+
 
     # Model generation
     initial_variation_factor: float = 0.3
@@ -23,5 +25,6 @@ class TrainingConfig:
     default_weight_decay: float = 0.0
 
     # Global search configuration
-    num_gradient_runs: int = 3
+    num_gradient_runs: int = 10
     log_best_group: str = "gradient_search_best_models"
+

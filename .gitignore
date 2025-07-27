@@ -16,3 +16,5 @@ data_processing/hyperparameter_optimization/wandb/*
 data_processing/hyperparameter_optimization/wandb
 data_processing/hyperparameter_optimization/wifi-rssi-gradient-search/*
 data_processing/hyperparameter_optimization/wifi-rssi-gradient-search
+data_processing/hyperparameter_optimization/models/*
+data_processing/hyperparameter_optimization/models

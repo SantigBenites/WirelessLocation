@@ -4,8 +4,6 @@ from model_generation import generate_random_model_configs, generate_similar_mod
 from config import TrainingConfig
 from gpu_fucntion import train_model_ray
 
-
-
 def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config):
 
     if not ray.is_initialized():
@@ -34,7 +32,7 @@ def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config):
 
         # Ensure unique names for each model
         for i, cfg in enumerate(current_configs):
-            cfg['name'] = f"depth{depth}_model{i}"
+            cfg['name'] = f"{config.group_name}_depth{depth}_model{i}"
 
         futures = [
             train_model_ray.remote(
@@ -61,17 +59,18 @@ def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config):
             for r in failures:
                 print(f"    {r['name']} failed due to: {r['error']}")
 
-        best_model_config = top_models[0]
-        best_model_config["name"] += "_wandb"
-        print(f"\n📊 Logging best model {best_model_config['name']} to Weights & Biases...")
-        _ = ray.get(train_model_ray.remote(
-            best_model_config,
-            train_ref,
-            val_ref,
-            -1,
-            config,
-            use_wandb=True
-        ))
-
+        # ✅ Only log the best model at this depth
+        if top_models:
+            best_model_config = top_models[0]
+            best_model_config["name"] = f"{config.group_name}_best_depth{depth}"
+            print(f"\n📊 Logging best model {best_model_config['name']} to Weights & Biases...")
+            _ = ray.get(train_model_ray.remote(
+                best_model_config,
+                train_ref,
+                val_ref,
+                -1,
+                config,
+                use_wandb=True
+            ))
 
     return top_models

@@ -1,4 +1,4 @@
-import os, torch, wandb, warnings, ray, gc
+import os, torch, wandb, warnings, ray, gc, time
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
@@ -34,7 +34,8 @@ class LightningWrapper(pl.LightningModule):
         y_hat = self.model(x)
         loss = self.loss_fn(y_hat, y)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        return loss
+        return {"val_loss": loss}
+
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
@@ -65,15 +66,14 @@ def get_least_used_gpu():
     return str(best_gpu)
 
 
-@ray.remote(num_gpus=0.20)
+@ray.remote(num_gpus=0.50)
 def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False):
     import wandb
     from pytorch_lightning.loggers import WandbLogger
+    import time
 
-    # 🧠 Assign to least-used GPU
     selected_gpu = get_least_used_gpu()
     os.environ["CUDA_VISIBLE_DEVICES"] = selected_gpu
-
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     warnings.filterwarnings("ignore")
 
@@ -86,7 +86,7 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
         X_val = torch.tensor(X_val, dtype=torch.float32)
         y_val = torch.tensor(y_val, dtype=torch.float32)
 
-        for attempt in range(10):  # Retry up to 3 times on OOM
+        for attempt in range(100):  # Retry up to 10 times
             try:
                 model = GeneratedModel(
                     input_size=X_train.shape[1],
@@ -122,7 +122,6 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
                         "architecture": config_dict['config']
                     })
 
-                # Dynamically reduce batch size on retry
                 batch_size = max(config.default_batch_size // (2 ** attempt), 8)
                 train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, num_workers=2)
                 val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, num_workers=2)
@@ -157,16 +156,28 @@ def train_model_ray(config_dict, train_data_ref, val_data_ref, model_index, conf
                     "status": "success"
                 }
 
-            except RuntimeError as e:
-                if "out of memory" in str(e):
-                    print(f"⚠️ CUDA OOM in {config_dict['name']}, retry {attempt + 1}/3 with smaller batch size...")
-                    torch.cuda.empty_cache()
-                    gc.collect()
-                    if attempt == 10:
-                        raise  # Give up after 3rd attempt
-                    continue
-                else:
-                    raise  # Raise all other errors
+            except Exception as e:
+                import traceback
+                traceback_str = traceback.format_exc()
+                print(f"⚠️ Error in {config_dict.get('name', 'unknown')} (attempt {attempt + 1}/10):\n{traceback_str}")
+                import sys
+                sys.stdout.flush()
+                if use_wandb:
+                    try:
+                        wandb.finish()
+                    except:
+                        pass
+                torch.cuda.empty_cache()
+                gc.collect()
+                time.sleep(5)
+
+        # If all retries fail
+        return {
+            **config_dict,
+            "val_loss": float("inf"),
+            "status": "failed",
+            "error": f"Training failed after 100 attempts"
+        }
 
     except Exception as e:
         if use_wandb:
