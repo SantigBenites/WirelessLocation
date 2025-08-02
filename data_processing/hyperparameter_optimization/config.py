@@ -7,9 +7,9 @@ class TrainingConfig:
     random_state: int = 42
 
     # Training settings
-    epochs: int = 20
+    epochs: int = 40
     training_depth: int = 10
-    models_per_depth: int = 10
+    models_per_depth: int = 12
     num_gpus: int = 6
     num_cpu = 24
     group_name: str = "gradient_search_global"
@@ -27,4 +27,7 @@ class TrainingConfig:
     # Global search configuration
     num_gradient_runs: int = 10
     log_best_group: str = "gradient_search_best_models"
+
+    # Model Storage
+    model_save_dir = "model_storage"
 

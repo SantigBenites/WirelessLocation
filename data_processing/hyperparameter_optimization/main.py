@@ -1,3 +1,4 @@
+
 from gradient_search import run_model_parallel_gradient_search
 from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data
 from sklearn.model_selection import train_test_split
@@ -5,9 +6,10 @@ import torch, time, pickle, os
 from config import TrainingConfig
 import logging, warnings
 import multiprocessing
+import logging
+import ray
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ['CUDA_LAUNCH_BLOCKING']="1"
 os.environ['TORCH_USE_CUDA_DSA'] = "1"
 
 # Configure environment
@@ -26,7 +28,6 @@ logging.getLogger("wandb").setLevel(logging.CRITICAL)
 from pytorch_lightning.utilities import rank_zero
 rank_zero._get_rank = lambda: 1
 
-# List of all collections
 all_collections = [
     "equilatero_grande_garage",
     "equilatero_grande_outdoor",
@@ -50,20 +51,16 @@ all_collections = [
 ]
 
 def group_by_location(collections, locations):
-    result = []
-    for name in collections:
-        if any(loc in name for loc in locations):
-            result.append(name)
-    return result
+    return [name for name in collections if any(loc in name for loc in locations)]
 
 def load_and_process_data(train_collections, db_name="wifi_fingerprinting_data"):
-    print(f"\U0001f4e1 Loading training datasets: {train_collections}")
+    print(f"📡 Loading training datasets: {train_collections}")
     train_datasets = [get_dataset(name, db_name) for name in train_collections]
     combined_train = combine_arrays(train_datasets)
     shuffled_train = shuffle_array(combined_train)
     X_train, y_train = split_combined_data(shuffled_train)
 
-    print("\U0001f4e1 Loading validation datasets: all collections")
+    print("📡 Loading validation datasets: all collections")
     val_datasets = [get_dataset(name, db_name) for name in all_collections]
     combined_val = combine_arrays(val_datasets)
     shuffled_val = shuffle_array(combined_val)
@@ -74,7 +71,12 @@ def load_and_process_data(train_collections, db_name="wifi_fingerprinting_data")
 if __name__ == '__main__':
     try:
         config = TrainingConfig()
-        multiprocessing.set_start_method("spawn", force=True)
+
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,4,5"
+
+        ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
+        # Suppress Ray internal logs
+        logging.getLogger("ray").setLevel(logging.ERROR)
 
         experiments = {
             "outdoor_only": group_by_location(all_collections, ["outdoor"]),
@@ -86,18 +88,15 @@ if __name__ == '__main__':
             "all_data": all_collections,
         }
 
-
-
-
         for experiment_name, train_collections in experiments.items():
-            print(f"\n\U0001f52c Starting experiment: {experiment_name}")
+            print(f"🔬 Starting experiment: {experiment_name}")
             X_train, y_train, X_val, y_val = load_and_process_data(train_collections)
 
             all_best_models = []
-            print(f"\n\U0001f680 Running {config.num_gradient_runs} independent gradient searches...")
+            print(f"🚀 Running {config.num_gradient_runs} independent gradient searches...")
 
             for run_index in range(config.num_gradient_runs):
-                print(f"\n\U0001f501 Run {run_index + 1}/{config.num_gradient_runs}")
+                print(f"🔁 Run {run_index + 1}/{config.num_gradient_runs}")
                 run_config = TrainingConfig(**vars(config))
                 run_config.group_name = f"{experiment_name}_run{run_index}"
 
@@ -117,7 +116,7 @@ if __name__ == '__main__':
             with open(result_path, 'wb') as f:
                 pickle.dump(all_best_models, f)
 
-            print(f"\n\U0001f4e6 Saved {len(all_best_models)} best models for experiment: {experiment_name}")
+            print(f"📦 Saved {len(all_best_models)} best models for experiment: {experiment_name}")
 
     except Exception as e:
         print(f"❌ Error during execution: {str(e)}")
