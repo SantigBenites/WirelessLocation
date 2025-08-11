@@ -26,7 +26,6 @@ class TrainingConfig:
 
     # Global search configuration
     num_gradient_runs: int = 10
-    log_best_group: str = "gradient_search_best_models"
 
     # Model Storage
     model_save_dir = "model_storage"

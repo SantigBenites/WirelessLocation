@@ -6,7 +6,23 @@ from pytorch_lightning.callbacks import EarlyStopping
 import pytorch_lightning as pl
 from model_generation import GeneratedModel
 import pynvml
+from pytorch_lightning.loggers import Logger
 import wandb
+
+class DummyLogger(Logger):
+    def log_metrics(self, metrics, step):
+        pass
+    def log_hyperparams(self, params):
+        pass
+    @property
+    def experiment(self):
+        return None
+    @property
+    def name(self):
+        return "dummy"
+    @property
+    def version(self):
+        return "0"
 
 
 class LightningWrapper(pl.LightningModule):
@@ -91,15 +107,15 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                     weight_decay=config.default_weight_decay
                 )
 
-                wandb_logger = None
+                logger = None
                 if use_wandb:
-                    wandb_logger = WandbLogger(
+                    logger = WandbLogger(
                         project="wifi-rssi-gradient-search",
                         name=config_dict["name"],
                         group=config.group_name,
                         log_model=True
                     )
-                    wandb_logger.watch(model, log="all", log_freq=100)
+                    logger.watch(model, log="all", log_freq=100)
                     wandb.config.update({
                         "model_index": model_index,
                         "group_name": config.group_name,
@@ -109,6 +125,8 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                         "epochs": config.epochs,
                         "architecture": config_dict['config']
                     })
+                else:
+                    logger = DummyLogger()
 
                 batch_size = max(config.default_batch_size // (2 ** attempt), 8)
                 train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, num_workers=config.num_cpu)
@@ -116,13 +134,14 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
 
                 trainer = Trainer(
                     max_epochs=config.epochs,
-                    logger=wandb_logger,
+                    logger=logger,
                     enable_progress_bar=False,
                     enable_model_summary=True,
                     callbacks=[EarlyStopping(monitor="val_loss", patience=8)],
                     accelerator="gpu",
                     devices=1,
                     log_every_n_steps=50,
+                    enable_checkpointing=False
                 )
 
                 trainer.fit(lightning_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
