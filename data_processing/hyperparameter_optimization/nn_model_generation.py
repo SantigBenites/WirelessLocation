@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
 from itertools import product
-from search_spaces import *
+from search_spaces import nn_search_space
 
 
 class GeneratedModel(nn.Module):
@@ -93,7 +93,7 @@ class GeneratedModel(nn.Module):
         
         return position#, uncertainty
 
-def generate_model_configs(search_space=grid_search_space):
+def generate_model_configs(search_space=nn_search_space):
     keys, values = zip(*search_space.items())
     configs = []
     
@@ -136,6 +136,7 @@ def generate_random_model_configs(search_space=nn_search_space, number_of_models
     for i in range(number_of_models):
         while True:
             sample = {key: random.choice(search_space[key]) for key in keys}
+            sample['model_type'] = 'cnn' 
 
             # Check attention constraints
             if sample['attention'] and sample['layer_size'] % 4 != 0:

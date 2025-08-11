@@ -1,221 +1,180 @@
-import torch, copy, random
+
+import torch
 import torch.nn as nn
-from typing import List, Dict, Any
+import random
+import copy
+from typing import Tuple, Dict, Any
 from search_spaces import cnn_search_space
 
+def _infer_hw(input_size: int, arch_cfg: Dict[str, Any]) -> Tuple[int, int]:
+    H = arch_cfg.get("input_height", None)
+    W = arch_cfg.get("input_width", None)
+    if isinstance(H, int) and isinstance(W, int) and H > 0 and W > 0 and H * W == input_size:
+        return H, W
+    r = int(input_size ** 0.5)
+    if r * r == input_size:
+        return r, r
+    return 1, input_size
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, kernel_size, stride, activation, use_bn, use_dropout, dropout, pool_type, pool_size):
+    def __init__(self, in_ch, out_ch, kernel_size, stride, activation, batch_norm, use_dropout, dropout):
         super().__init__()
-        padding = kernel_size // 2  # keep length when stride == 1
-        self.conv = nn.Conv1d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding, bias=not use_bn)
-        if use_bn:
-            self.bn = nn.BatchNorm1d(out_ch)
-        else:
-            self.bn = None
-
-        self.act = {
+        padding = kernel_size // 2
+        layers = [nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding, bias=not batch_norm)]
+        if batch_norm:
+            layers.append(nn.BatchNorm2d(out_ch))
+        act_map = {
             'relu': nn.ReLU(inplace=True),
             'leaky_relu': nn.LeakyReLU(0.1, inplace=True),
             'elu': nn.ELU(inplace=True),
             'selu': nn.SELU(inplace=True),
             'tanh': nn.Tanh()
-        }[activation]
-
-        self.do = nn.Dropout(dropout) if use_dropout and dropout > 0 else None
-
-        if pool_type == 'max':
-            self.pool = nn.MaxPool1d(pool_size)
-        elif pool_type == 'avg':
-            self.pool = nn.AvgPool1d(pool_size)
-        else:
-            self.pool = None
-
-        # init
-        nn.init.kaiming_uniform_(self.conv.weight, mode='fan_in', nonlinearity='relu')
+        }
+        layers.append(act_map.get(activation, nn.ReLU(inplace=True)))
+        if use_dropout and dropout and dropout > 0:
+            layers.append(nn.Dropout2d(p=dropout))
+        self.block = nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.conv(x)
-        if self.bn is not None:
-            x = self.bn(x)
-        x = self.act(x)
-        if self.do is not None:
-            x = self.do(x)
-        if self.pool is not None:
-            x = self.pool(x)
-        return x
-
+        return self.block(x)
 
 class GeneratedModel(nn.Module):
     def __init__(self, input_size: int, output_size: int, architecture_config: Dict[str, Any]):
         super().__init__()
-        cfg = architecture_config
+        self.cfg = architecture_config
+        H, W = _infer_hw(input_size, architecture_config)
+        self.input_hw = (H, W)
 
-        # shapes: we accept [B, F]. We reshape to [B, C, L]. Default C=1, L=F.
-        in_channels = cfg.get('input_channels', 1)
-        if input_size % in_channels != 0:
-            raise ValueError(f"input_size {input_size} not divisible by input_channels {in_channels}")
-        seq_len = input_size // in_channels
+        in_ch = architecture_config.get('input_channels', 1)
+        num_blocks = architecture_config.get('num_conv_blocks', 2)
+        out_ch_base = architecture_config.get('out_channels', 16)
+        k = architecture_config.get('kernel_size', 3)
+        s = architecture_config.get('stride', 1)
+        act = architecture_config.get('activation', 'relu')
+        bn = architecture_config.get('batch_norm', True)
+        use_do = architecture_config.get('use_dropout', False)
+        p_do = architecture_config.get('dropout', 0.0)
+        pool_type = architecture_config.get('pool_type', 'none')
+        pool_sz = architecture_config.get('pool_size', 2)
+        residual = architecture_config.get('residual_connections', False)
+        global_pool = architecture_config.get('global_pool', 'avg')
+        num_dense = architecture_config.get('num_dense_layers', 1)
+        dense_size = architecture_config.get('dense_size', 128)
+        dense_do = architecture_config.get('dense_dropout', 0.0)
 
-        self.input_size = input_size
-        self.in_channels = in_channels
-        self.seq_len = seq_len
-        self.output_size = output_size
+        convs = []
+        channels = [in_ch] + [out_ch_base * (2 ** i) for i in range(num_blocks)]
+        self.skip_convs = nn.ModuleList() if residual else None
 
-        blocks: List[Dict[str, Any]] = cfg['conv_blocks']
-        self.residual = cfg.get('residual_connections', False)
-        self.global_pool = cfg.get('global_pool', 'none')
+        current_h, current_w = H, W
+        for i in range(num_blocks):
+            convs.append(ConvBlock(channels[i], channels[i+1], k, s, act, bn, use_do, p_do))
+            if residual:
+                self.skip_convs.append(nn.Conv2d(channels[i], channels[i+1], kernel_size=1))
+            if pool_type == 'max' and current_h >= pool_sz and current_w >= pool_sz:
+                convs.append(nn.MaxPool2d(kernel_size=pool_sz))
+                current_h = max(1, current_h // pool_sz)
+                current_w = max(1, current_w // pool_sz)
+            elif pool_type == 'avg' and current_h >= pool_sz and current_w >= pool_sz:
+                convs.append(nn.AvgPool2d(kernel_size=pool_sz))
+                current_h = max(1, current_h // pool_sz)
+                current_w = max(1, current_w // pool_sz)
 
-        layers = []
-        ch = in_channels
-        for b in blocks:
-            block = ConvBlock(
-                in_ch=ch,
-                out_ch=b['out_channels'],
-                kernel_size=b['kernel_size'],
-                stride=b.get('stride', 1),
-                activation=b['activation'],
-                use_bn=b.get('batch_norm', False),
-                use_dropout=b.get('use_dropout', False),
-                dropout=b.get('dropout', 0.0),
-                pool_type=b.get('pool_type', 'none'),
-                pool_size=b.get('pool_size', 2),
-            )
-            layers.append(block)
-            ch = b['out_channels']
-        self.conv_layers = nn.ModuleList(layers)
+        self.features = nn.Sequential(*convs)
 
-        # projection for residual if needed per block is handled in forward on the fly
-        self.res_proj = nn.ModuleDict()
-
-        # Global pooling
-        if self.global_pool == 'avg':
-            self.global_pool_layer = nn.AdaptiveAvgPool1d(1)
-        elif self.global_pool == 'max':
-            self.global_pool_layer = nn.AdaptiveMaxPool1d(1)
+        if global_pool == 'avg':
+            self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
+            gp_out = channels[-1]
+        elif global_pool == 'max':
+            self.global_pool = nn.AdaptiveMaxPool2d((1, 1))
+            gp_out = channels[-1]
         else:
-            self.global_pool_layer = None
+            self.global_pool = nn.Identity()
+            gp_out = channels[-1] * current_h * current_w
 
-        # Dense head
-        num_dense = cfg.get('num_dense_layers', 0)
-        dense_size = cfg.get('dense_size', 64)
-        dense_layers: List[nn.Module] = []
-        in_feat = ch  # after pooling we will flatten channel dimension
-        for i in range(num_dense):
+        dense_layers = []
+        in_feat = gp_out
+        act_map = {
+            'relu': nn.ReLU(inplace=True),
+            'leaky_relu': nn.LeakyReLU(0.1, inplace=True),
+            'elu': nn.ELU(inplace=True),
+            'selu': nn.SELU(inplace=True),
+            'tanh': nn.Tanh()
+        }
+        for _ in range(max(0, num_dense)):
             dense_layers.append(nn.Linear(in_feat, dense_size))
-            dense_layers.append(nn.ReLU(inplace=True))
-            drop = cfg.get('dense_dropout', 0.0)
-            if drop and drop > 0:
-                dense_layers.append(nn.Dropout(drop))
+            if bn:
+                dense_layers.append(nn.BatchNorm1d(dense_size))
+            dense_layers.append(act_map.get(act, nn.ReLU(inplace=True)))
+            if dense_do and dense_do > 0:
+                dense_layers.append(nn.Dropout(p=dense_do))
             in_feat = dense_size
-        self.dense = nn.Sequential(*dense_layers) if dense_layers else None
 
+        self.dense = nn.Sequential(*dense_layers)
         self.out = nn.Linear(in_feat, output_size)
 
-    def forward(self, x):
-        # x: [B, F] -> [B, C, L]
-        b = x.shape[0]
-        x = x.view(b, self.in_channels, self.seq_len)
-
-        res = None
-        ch_in = self.in_channels
-        for i, block in enumerate(self.conv_layers):
-            x_in = x
-            x = block(x)
-            if self.residual:
-                same_length = x.shape[-1] == x_in.shape[-1]
-                same_channels = x.shape[1] == x_in.shape[1]
-                if same_length and same_channels:
-                    x = x + x_in
-
-        if self.global_pool_layer is not None:
-            x = self.global_pool_layer(x)  # [B, C, 1]
-            x = x.squeeze(-1)  # [B, C]
+    def _reshape_input(self, x: torch.Tensor) -> torch.Tensor:
+        N = x.shape[0]
+        H, W = self.input_hw
+        C = self.cfg.get('input_channels', 1)
+        if x.shape[1] == C * H * W:
+            return x.view(N, C, H, W)
         else:
-            x = torch.flatten(x, start_dim=1)
+            return x.view(N, 1, 1, x.shape[1])
 
-        if self.dense is not None:
-            x = self.dense(x)
-        return self.out(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self._reshape_input(x)
+        out = x
+        if self.cfg.get('residual_connections', False):
+            skip_idx = 0
+            for layer in self.features:
+                if isinstance(layer, ConvBlock):
+                    skip = out
+                    out = layer(out)
+                    out = out + self.skip_convs[skip_idx](skip)
+                    skip_idx += 1
+                else:
+                    out = layer(out)
+        else:
+            out = self.features(x)
 
-
-def _build_arch_from_params(p: Dict[str, Any]) -> Dict[str, Any]:
-    blocks = []
-    for _ in range(p['num_conv_blocks']):
-        blocks.append({
-            'out_channels': p['out_channels'],
-            'kernel_size': p['kernel_size'],
-            'stride': p['stride'],
-            'activation': p['activation'],
-            'batch_norm': p['batch_norm'],
-            'use_dropout': p['use_dropout'],
-            'dropout': p['dropout'],
-            'pool_type': p['pool_type'],
-            'pool_size': p['pool_size'],
-        })
-    arch = {
-        'input_channels': p.get('input_channels', 1),
-        'conv_blocks': blocks,
-        'residual_connections': p['residual_connections'],
-        'global_pool': p['global_pool'],
-        'num_dense_layers': p['num_dense_layers'],
-        'dense_size': p['dense_size'],
-        'dense_dropout': p.get('dense_dropout', 0.0),
-    }
-    return arch
-
-
-def generate_model_configs(search_space=cnn_search_space):
-    keys, values = zip(*search_space.items())
-    configs = []
-    # Cartesian product
-    from itertools import product
-    for combo in product(*values):
-        params = dict(zip(keys, combo))
-        arch = _build_arch_from_params(params)
-        configs.append({
-            'name': f"CNN_{len(configs)+1}",
-            'config': arch,
-            'params': params,
-        })
-    return configs
-
+        out = self.global_pool(out)
+        out = torch.flatten(out, 1)
+        out = self.dense(out)
+        out = self.out(out)
+        return out
 
 def generate_random_model_configs(search_space=cnn_search_space, number_of_models=10):
     keys = list(search_space.keys())
     configs = []
     for i in range(number_of_models):
-        p = {k: random.choice(search_space[k]) for k in keys}
-        arch = _build_arch_from_params(p)
+        sample = {key: random.choice(search_space[key]) for key in keys}
+        arch = {k: sample[k] for k in sample}
         configs.append({
-            'name': f"RandomCNN_{i}",
+            'name': f"CNN_RandomModel_{i}",
             'config': arch,
-            'params': p,
+            'params': sample
         })
     return configs
 
-
 def generate_similar_model_configs(base_model, search_space=cnn_search_space, number_of_models=10, variation_factor=0.2):
-    def vary_param(key, val):
-        opts = search_space[key]
-        try:
-            idx = opts.index(val)
-            shift = random.choice([-1, 1]) if random.random() < variation_factor else 0
-            return opts[(idx + shift) % len(opts)]
-        except ValueError:
-            return random.choice(opts)
-
-    base = copy.deepcopy(base_model['params'])
     configs = []
+    base_params = base_model['params']
     for i in range(number_of_models):
-        p = copy.deepcopy(base)
-        for k in base.keys():
-            if random.random() < variation_factor and k in search_space:
-                p[k] = vary_param(k, base[k])
-        arch = _build_arch_from_params(p)
+        new_params = copy.deepcopy(base_params)
+        for key in new_params:
+            if key in search_space and random.random() < variation_factor:
+                options = search_space[key]
+                try:
+                    idx = options.index(new_params[key])
+                    shift = random.choice([-2, -1, 1, 2])
+                    new_params[key] = options[(idx + shift) % len(options)]
+                except ValueError:
+                    new_params[key] = random.choice(options)
+        arch = {k: new_params[k] for k in new_params}
         configs.append({
-            'name': f"SimilarCNN_{base_model['name']}_{i}",
+            'name': f"CNN_Similar_{base_model['name']}_{i}",
             'config': arch,
-            'params': p,
+            'params': new_params
         })
     return configs

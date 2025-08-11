@@ -4,7 +4,6 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping
 import pytorch_lightning as pl
-from cnn_model_generation import GeneratedModel
 import pynvml
 from pytorch_lightning.loggers import Logger
 import wandb
@@ -37,7 +36,13 @@ class LightningWrapper(pl.LightningModule):
         self.save_hyperparameters(ignore=['model'])
 
     def forward(self, x):
-        return self.model(x)
+        # For CNN models, we might need to reshape the input
+        if hasattr(self.model, 'input_channels') and not hasattr(self.model, 'input_size'):
+            # This is a CNN model
+            return self.model(x)
+        else:
+            # This is a regular NN model
+            return self.model(x)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -92,11 +97,27 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
     try:
         for attempt in range(100):
             try:
-                model = GeneratedModel(
-                    input_size=X_train.shape[1],
-                    output_size=y_val.shape[1],
-                    architecture_config=config_dict['config']
-                )
+                # Determine model type based on config or model name
+                is_cnn = 'cnn' in config_dict.get('name', '').lower() or \
+                         config_dict.get('params', {}).get('model_type', 'nn') == 'cnn' or \
+                         'num_conv_blocks' in config_dict.get('config', {})
+
+                if is_cnn:
+                    # Import CNN model here to avoid circular imports
+                    from cnn_model_generation import GeneratedModel
+                    model = GeneratedModel(
+                        input_channels=X_train.shape[1],  # Number of input features as channels
+                        output_size=y_val.shape[1],
+                        architecture_config=config_dict['config']
+                    )
+                else:
+                    # Import NN model here to avoid circular imports
+                    from nn_model_generation import GeneratedModel
+                    model = GeneratedModel(
+                        input_size=X_train.shape[1],
+                        output_size=y_val.shape[1],
+                        architecture_config=config_dict['config']
+                    )
 
                 lightning_model = LightningWrapper(
                     model=model,
@@ -122,14 +143,19 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                         "weight_decay": config.default_weight_decay,
                         "batch_size": config.default_batch_size,
                         "epochs": config.epochs,
-                        "architecture": config_dict['config']
+                        "architecture": config_dict['config'],
+                        "model_type": "cnn" if is_cnn else "nn"
                     })
                 else:
                     logger = DummyLogger()
 
                 batch_size = max(config.default_batch_size // (2 ** attempt), 8)
-                train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, num_workers=config.num_cpu)
-                val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, num_workers=config.num_cpu)
+                train_loader = DataLoader(TensorDataset(X_train, y_train), 
+                                       batch_size=batch_size, 
+                                       num_workers=config.num_cpu)
+                val_loader = DataLoader(TensorDataset(X_val, y_val), 
+                                     batch_size=batch_size, 
+                                     num_workers=config.num_cpu)
 
                 trainer = Trainer(
                     max_epochs=config.epochs,
@@ -150,14 +176,15 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                     wandb.log({"final_val_loss": val_loss.item() if val_loss else float('inf')})
 
                 os.makedirs(config.model_save_dir, exist_ok=True)
-                model_save_path = os.path.join(config.model_save_dir, f"{config_dict['name']}.ckpt")
+                model_save_path = os.path.join(config.model_save_dir, f"{config.group_name}_{config_dict['name']}.ckpt")
                 trainer.save_checkpoint(model_save_path)
                 print(f"💾 Saved model to {model_save_path}")
 
                 return {
                     **config_dict,
                     "val_loss": val_loss.item() if val_loss else float('inf'),
-                    "status": "success"
+                    "status": "success",
+                    "model_type": "cnn" if is_cnn else "nn"
                 }
 
             except Exception as e:
@@ -166,7 +193,6 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                 traceback.print_exc()
                 torch.cuda.empty_cache()
                 gc.collect()
-                import time
                 time.sleep(min(5 + attempt * 2, 30))
 
         return {
