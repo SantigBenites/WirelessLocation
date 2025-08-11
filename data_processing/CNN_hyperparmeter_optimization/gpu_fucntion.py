@@ -75,6 +75,7 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
     os.environ["WANDB_START_METHOD"] = "thread"
 
     torch.cuda.empty_cache()
+    torch.cuda.amp.autocast()
     print(f"🚀 Ray assigned CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES')}")
 
     X_train, y_train = train_data_ref
@@ -84,11 +85,10 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
         for attempt in range(100):
             try:
                 model = GeneratedModel(
-                    input_size=X_train.shape[1],
+                    input_shape=(X_train.shape[1], 32, 32),  # channels, height, width
                     output_size=y_val.shape[1],
                     architecture_config=config_dict['config']
                 )
-
                 lightning_model = LightningWrapper(
                     model=model,
                     train_data=(X_train, y_train),
@@ -183,3 +183,4 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                 print(f"⚠️ wandb.finish() failed: {e}")
         torch.cuda.empty_cache()
         gc.collect()
+

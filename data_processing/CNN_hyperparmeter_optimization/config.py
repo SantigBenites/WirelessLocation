@@ -20,7 +20,7 @@ class TrainingConfig:
     variation_decay_rate: float = 0.02
 
     # Optimization
-    default_batch_size: int = 2048
+    default_batch_size: int = 1024
     default_learning_rate: float = 0.01
     default_weight_decay: float = 0.0
 
