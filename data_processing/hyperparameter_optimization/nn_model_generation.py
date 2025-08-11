@@ -129,7 +129,7 @@ def generate_model_configs(search_space=grid_search_space):
 
 
 
-def generate_random_model_configs(search_space=random_search_space, number_of_models=10):
+def generate_random_model_configs(search_space=nn_search_space, number_of_models=10):
     keys = list(search_space.keys())
     configs = []
 
@@ -169,7 +169,7 @@ def generate_random_model_configs(search_space=random_search_space, number_of_mo
     return configs
 
 
-def generate_similar_model_configs(base_model, search_space=random_search_space, number_of_models=10, variation_factor=0.2):
+def generate_similar_model_configs(base_model, search_space=nn_search_space, number_of_models=10, variation_factor=0.2):
     configs = []
     base_params = base_model['params']
     

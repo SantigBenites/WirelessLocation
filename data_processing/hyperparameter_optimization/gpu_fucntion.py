@@ -4,7 +4,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping
 import pytorch_lightning as pl
-from model_generation import GeneratedModel
+from cnn_model_generation import GeneratedModel
 import pynvml
 from pytorch_lightning.loggers import Logger
 import wandb
@@ -72,7 +72,6 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping
 import pytorch_lightning as pl
-from model_generation import GeneratedModel
 import wandb
 from gpu_fucntion import LightningWrapper
 

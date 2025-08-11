@@ -98,7 +98,8 @@ if __name__ == '__main__':
             for run_index in range(config.num_gradient_runs):
                 print(f"🔁 Run {run_index + 1}/{config.num_gradient_runs}")
                 run_config = TrainingConfig(**vars(config))
-                run_config.group_name = f"{experiment_name}_run{run_index}"
+                run_config.experiment_name = experiment_name
+                run_config.run_index = run_index
 
                 top_models = run_model_parallel_gradient_search(
                     X_train=X_train,

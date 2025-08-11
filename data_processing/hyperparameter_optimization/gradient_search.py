@@ -3,7 +3,7 @@ import ray
 import torch
 import time
 import random
-from model_generation import generate_random_model_configs, generate_similar_model_configs
+from cnn_model_generation import generate_random_model_configs, generate_similar_model_configs
 from config import TrainingConfig
 from gpu_fucntion import train_model
 
@@ -69,7 +69,7 @@ def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config: T
             )
 
         for i, cfg in enumerate(current_configs):
-            cfg['name'] = f"{config.group_name}_depth{depth}_model{i}"
+            cfg['name'] = f"{config.experiment_name}_run{config.run_index}_depth{depth}_model{i}"
 
         print(f"⏳ Dispatching {len(current_configs)} models via Ray...")
 

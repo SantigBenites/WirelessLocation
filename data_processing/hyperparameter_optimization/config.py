@@ -12,7 +12,7 @@ class TrainingConfig:
     models_per_depth: int = 12
     num_gpus: int = 6
     num_cpu = 24
-    group_name: str = "gradient_search_global"
+    group_name: str = "CNN"
 
 
     # Model generation
@@ -29,4 +29,5 @@ class TrainingConfig:
 
     # Model Storage
     model_save_dir = "model_storage"
-
+    experiment_name = "experiment"
+    run_index = 0
