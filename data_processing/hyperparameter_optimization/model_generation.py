@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
 from itertools import product
-from search_spaces import nn_search_space
+from search_spaces import grid_search_space
 
 
 class GeneratedModel(nn.Module):
@@ -93,7 +93,7 @@ class GeneratedModel(nn.Module):
         
         return position#, uncertainty
 
-def generate_model_configs(search_space=nn_search_space):
+def generate_model_configs(search_space=grid_search_space):
     keys, values = zip(*search_space.items())
     configs = []
     
@@ -129,7 +129,7 @@ def generate_model_configs(search_space=nn_search_space):
 
 
 
-def generate_random_model_configs(search_space=nn_search_space, number_of_models=10):
+def generate_random_model_configs(search_space=grid_search_space, number_of_models=10):
     keys = list(search_space.keys())
     configs = []
 
@@ -170,7 +170,7 @@ def generate_random_model_configs(search_space=nn_search_space, number_of_models
     return configs
 
 
-def generate_similar_model_configs(base_model, search_space=nn_search_space, number_of_models=10, variation_factor=0.2):
+def generate_similar_model_configs(base_model, search_space=grid_search_space, number_of_models=10, variation_factor=0.2):
     configs = []
     base_params = base_model['params']
     

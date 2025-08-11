@@ -2,8 +2,8 @@
 import torch
 import torch.nn as nn
 import random
-import copy
-from typing import Tuple, Dict, Any
+import copy, math
+from typing import Tuple, Dict, Any, List
 from search_spaces import cnn_search_space
 
 def _infer_hw(input_size: int, arch_cfg: Dict[str, Any]) -> Tuple[int, int]:
@@ -41,76 +41,66 @@ class ConvBlock(nn.Module):
 class GeneratedModel(nn.Module):
     def __init__(self, input_size: int, output_size: int, architecture_config: Dict[str, Any]):
         super().__init__()
-        self.cfg = architecture_config
-        H, W = _infer_hw(input_size, architecture_config)
-        self.input_hw = (H, W)
+        cfg = architecture_config
 
-        in_ch = architecture_config.get('input_channels', 1)
-        num_blocks = architecture_config.get('num_conv_blocks', 2)
-        out_ch_base = architecture_config.get('out_channels', 16)
-        k = architecture_config.get('kernel_size', 3)
-        s = architecture_config.get('stride', 1)
-        act = architecture_config.get('activation', 'relu')
-        bn = architecture_config.get('batch_norm', True)
-        use_do = architecture_config.get('use_dropout', False)
-        p_do = architecture_config.get('dropout', 0.0)
-        pool_type = architecture_config.get('pool_type', 'none')
-        pool_sz = architecture_config.get('pool_size', 2)
-        residual = architecture_config.get('residual_connections', False)
-        global_pool = architecture_config.get('global_pool', 'avg')
-        num_dense = architecture_config.get('num_dense_layers', 1)
-        dense_size = architecture_config.get('dense_size', 128)
-        dense_do = architecture_config.get('dense_dropout', 0.0)
+        in_channels = cfg.get('input_channels', 1)
+        if input_size % in_channels != 0:
+            raise ValueError(f"input_size {input_size} not divisible by input_channels {in_channels}")
+        seq_len = input_size // in_channels
 
-        convs = []
-        channels = [in_ch] + [out_ch_base * (2 ** i) for i in range(num_blocks)]
-        self.skip_convs = nn.ModuleList() if residual else None
+        blocks: List[Dict[str, Any]] = cfg['conv_blocks']
+        self.residual = cfg.get('residual_connections', False)
+        self.global_pool = cfg.get('global_pool', 'none')
 
-        current_h, current_w = H, W
-        for i in range(num_blocks):
-            convs.append(ConvBlock(channels[i], channels[i+1], k, s, act, bn, use_do, p_do))
-            if residual:
-                self.skip_convs.append(nn.Conv2d(channels[i], channels[i+1], kernel_size=1))
-            if pool_type == 'max' and current_h >= pool_sz and current_w >= pool_sz:
-                convs.append(nn.MaxPool2d(kernel_size=pool_sz))
-                current_h = max(1, current_h // pool_sz)
-                current_w = max(1, current_w // pool_sz)
-            elif pool_type == 'avg' and current_h >= pool_sz and current_w >= pool_sz:
-                convs.append(nn.AvgPool2d(kernel_size=pool_sz))
-                current_h = max(1, current_h // pool_sz)
-                current_w = max(1, current_w // pool_sz)
+        layers = []
+        ch = in_channels
+        cur_len = seq_len  # <— track current length
+        for b in blocks:
+            block = ConvBlock(
+                in_ch=ch,
+                out_ch=b['out_channels'],
+                kernel_size=b['kernel_size'],
+                stride=b.get('stride', 1),
+                activation=b['activation'],
+                use_bn=b.get('batch_norm', False),
+                use_dropout=b.get('use_dropout', False),
+                dropout=b.get('dropout', 0.0),
+                pool_type=b.get('pool_type', 'none'),
+                pool_size=b.get('pool_size', 2),
+            )
+            layers.append(block)
+            ch = b['out_channels']
 
-        self.features = nn.Sequential(*convs)
+            # conv keeps length due to padding/stride=1; only pooling changes it
+            if b.get('pool_type', 'none') in ('max', 'avg'):
+                cur_len = math.floor(cur_len / b.get('pool_size', 2))
+                cur_len = max(cur_len, 1)
 
-        if global_pool == 'avg':
-            self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
-            gp_out = channels[-1]
-        elif global_pool == 'max':
-            self.global_pool = nn.AdaptiveMaxPool2d((1, 1))
-            gp_out = channels[-1]
+        self.conv_layers = nn.ModuleList(layers)
+
+        if self.global_pool == 'avg':
+            self.global_pool_layer = nn.AdaptiveAvgPool1d(1)
+        elif self.global_pool == 'max':
+            self.global_pool_layer = nn.AdaptiveMaxPool1d(1)
         else:
-            self.global_pool = nn.Identity()
-            gp_out = channels[-1] * current_h * current_w
+            self.global_pool_layer = None
 
-        dense_layers = []
-        in_feat = gp_out
-        act_map = {
-            'relu': nn.ReLU(inplace=True),
-            'leaky_relu': nn.LeakyReLU(0.1, inplace=True),
-            'elu': nn.ELU(inplace=True),
-            'selu': nn.SELU(inplace=True),
-            'tanh': nn.Tanh()
-        }
-        for _ in range(max(0, num_dense)):
+        num_dense = cfg.get('num_dense_layers', 0)
+        dense_size = cfg.get('dense_size', 64)
+        dense_layers: List[nn.Module] = []
+
+        # ✅ set correct input feature size for the dense head
+        in_feat = ch if self.global_pool_layer is not None else ch * cur_len
+
+        for _ in range(num_dense):
             dense_layers.append(nn.Linear(in_feat, dense_size))
-            if bn:
-                dense_layers.append(nn.BatchNorm1d(dense_size))
-            dense_layers.append(act_map.get(act, nn.ReLU(inplace=True)))
-            if dense_do and dense_do > 0:
-                dense_layers.append(nn.Dropout(p=dense_do))
+            dense_layers.append(nn.ReLU(inplace=True))
+            drop = cfg.get('dense_dropout', 0.0)
+            if drop and drop > 0:
+                dense_layers.append(nn.Dropout(drop))
             in_feat = dense_size
 
-        self.dense = nn.Sequential(*dense_layers)
+        self.dense = nn.Sequential(*dense_layers) if dense_layers else None
         self.out = nn.Linear(in_feat, output_size)
 
     def _reshape_input(self, x: torch.Tensor) -> torch.Tensor:

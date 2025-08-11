@@ -3,7 +3,7 @@ import ray
 import torch
 import time
 import random
-from cnn_model_generation import generate_random_model_configs, generate_similar_model_configs
+from model_generation import generate_random_model_configs, generate_similar_model_configs
 from config import TrainingConfig
 from gpu_fucntion import train_model
 
