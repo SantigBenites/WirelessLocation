@@ -65,4 +65,3 @@ def features_to_sparse_grid(features, locations, grid_size=GRID_SIZE):
         gy = int(((locations[i,1] + 2) / 4) * (grid_size - 1))
         grids[i, :, gy, gx] = features[i]
     return grids
-

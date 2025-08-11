@@ -66,6 +66,11 @@ class LightningWrapper(pl.LightningModule):
         }
 
 
+X_train_id = None
+y_train_id = None
+X_val_id = None
+y_val_id = None
+
 def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False):
     # Env for wandb/no-tokenizer parallelism noise
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -75,24 +80,30 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
     os.environ["WANDB_START_METHOD"] = "thread"
 
     torch.cuda.empty_cache()
-    torch.cuda.amp.autocast()
     print(f"🚀 Ray assigned CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES')}")
 
     X_train, y_train = train_data_ref
     X_val, y_val = val_data_ref
 
+    X_train_reshaped = X_train.reshape(X_train.shape[0], -1, 32, 32)
+    X_val_reshaped   = X_val.reshape(X_val.shape[0], -1, 32, 32)
+
+
     try:
         for attempt in range(100):
             try:
                 model = GeneratedModel(
-                    input_shape=(X_train.shape[1], 32, 32),  # channels, height, width
-                    output_size=y_val.shape[1],
+                    input_shape=(X_train_reshaped.shape[1], 32, 32),  # channels, height, width
+                    num_classes=y_val.shape[1],
                     architecture_config=config_dict['config']
                 )
+
+
+
                 lightning_model = LightningWrapper(
                     model=model,
-                    train_data=(X_train, y_train),
-                    val_data=(X_val, y_val),
+                    train_data=(X_train_reshaped, y_train),
+                    val_data=(X_val_reshaped, y_val),
                     learning_rate=config.default_learning_rate,
                     weight_decay=config.default_weight_decay
                 )
@@ -183,4 +194,3 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                 print(f"⚠️ wandb.finish() failed: {e}")
         torch.cuda.empty_cache()
         gc.collect()
-

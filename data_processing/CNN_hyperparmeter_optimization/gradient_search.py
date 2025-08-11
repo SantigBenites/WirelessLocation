@@ -32,8 +32,6 @@ def ray_train_model(cfg, train_data_ref, val_data_ref, model_index, config, use_
     }
 
 def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config: TrainingConfig):
-    ray.init(ignore_reinit_error=True, include_dashboard=False)
-
     X_train = torch.tensor(X_train, dtype=torch.float32)
     y_train = torch.tensor(y_train, dtype=torch.float32)
     X_val = torch.tensor(X_val, dtype=torch.float32)

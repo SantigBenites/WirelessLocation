@@ -1,6 +1,6 @@
 
 from gradient_search import run_model_parallel_gradient_search
-from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data, features_to_sparse_grid
+from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data, gridify_dataset
 from sklearn.model_selection import train_test_split
 import torch, time, pickle, os
 from config import TrainingConfig
@@ -66,11 +66,7 @@ def load_and_process_data(train_collections, db_name="wifi_fingerprinting_data")
     shuffled_val = shuffle_array(combined_val)
     X_val, y_val = split_combined_data(shuffled_val)
 
-    # Convert to sparse grid format [B, C, 32, 32]
-    X_train_grid = features_to_sparse_grid(X_train, y_train)
-    X_val_grid = features_to_sparse_grid(X_val, y_val)
-
-    return X_train_grid, y_train, X_val_grid, y_val
+    return X_train, y_train, X_val, y_val
 
 if __name__ == '__main__':
     try:
@@ -78,7 +74,7 @@ if __name__ == '__main__':
 
         os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,5"
 
-        ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
+        ray.init(_memory=8 * 1024 * 1024 * 1024, object_store_memory=6 * 1024 * 1024 * 1024,include_dashboard=False,ignore_reinit_error=True, log_to_driver=True)
         logging.getLogger("ray").setLevel(logging.ERROR)
 
         experiments = {
@@ -125,4 +121,3 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ Error during execution: {str(e)}")
         raise
-
