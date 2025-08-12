@@ -6,6 +6,7 @@ from pytorch_lightning.loggers import WandbLogger, Logger
 from pytorch_lightning.callbacks import EarlyStopping
 import pytorch_lightning as pl
 from model_generation import GeneratedModel
+from data_processing import features_to_sparse_grid, GRID_SIZE
 import wandb
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -85,15 +86,23 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
     X_train, y_train = train_data_ref
     X_val, y_val = val_data_ref
 
-    X_train_reshaped = X_train.reshape(X_train.shape[0], -1, 32, 32)
-    X_val_reshaped   = X_val.reshape(X_val.shape[0], -1, 32, 32)
+    X_train_np = X_train.cpu().numpy()
+    X_val_np = X_val.cpu().numpy()
+    # Convert 3-AP RSSI vectors into sparse grids on a 32x32 canvas
+    # Labels contain (location_x, location_y); features are 3 channels placed at the grid cell for that location
+    y_train_np = y_train.cpu().numpy()
+    y_val_np = y_val.cpu().numpy()
+    X_train_grid = features_to_sparse_grid(X_train_np, y_train_np, grid_size=GRID_SIZE)
+    X_val_grid = features_to_sparse_grid(X_val_np, y_val_np, grid_size=GRID_SIZE)
+    X_train_t = torch.tensor(X_train_grid, dtype=torch.float32)
+    X_val_t = torch.tensor(X_val_grid, dtype=torch.float32)
 
 
     try:
         for attempt in range(100):
             try:
                 model = GeneratedModel(
-                    input_shape=(X_train_reshaped.shape[1], 32, 32),  # channels, height, width
+                    input_shape=(X_train_t.shape[1], X_train_t.shape[2], X_train_t.shape[3]),  # channels, height, width
                     num_classes=y_val.shape[1],
                     architecture_config=config_dict['config']
                 )
@@ -102,8 +111,8 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
 
                 lightning_model = LightningWrapper(
                     model=model,
-                    train_data=(X_train_reshaped, y_train),
-                    val_data=(X_val_reshaped, y_val),
+                    train_data=(X_train_t, y_train),
+                    val_data=(X_val_t, y_val),
                     learning_rate=config.default_learning_rate,
                     weight_decay=config.default_weight_decay
                 )

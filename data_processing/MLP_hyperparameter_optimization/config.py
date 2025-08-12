@@ -7,12 +7,12 @@ class TrainingConfig:
     random_state: int = 42
 
     # Training settings
-    epochs: int = 40
+    epochs: int = 20
     training_depth: int = 10
-    models_per_depth: int = 12
+    models_per_depth: int = 6
     num_gpus: int = 6
     num_cpu = 24
-    group_name: str = "CNN"
+    group_name: str = "MLP"
 
 
     # Model generation
@@ -20,12 +20,12 @@ class TrainingConfig:
     variation_decay_rate: float = 0.02
 
     # Optimization
-    default_batch_size: int = 1024
+    default_batch_size: int = 4096
     default_learning_rate: float = 0.01
     default_weight_decay: float = 0.0
 
     # Global search configuration
-    num_gradient_runs: int = 10
+    num_gradient_runs: int = 1
 
     # Model Storage
     model_save_dir = "model_storage"
