@@ -6,6 +6,9 @@ data_processing/parallel_grid_search/model_performance/*
 data_processing/parallel_grid_search/model_performance/
 data_processing/parallel_grid_search/__pycache__/
 data_processing/parallel_grid_search/__pycache__/*
+
+## NN OPTIMIZATION
+
 data_processing/hyperparameter_optimization/checkpoints/*
 data_processing/hyperparameter_optimization/checkpoints
 data_processing/hyperparameter_optimization/lightning_logs/*
@@ -24,3 +27,24 @@ data_processing/hyperparameter_optimization/__pycache__
 data_processing/hyperparameter_optimization/__pycache__/*
 data_processing/hyperparameter_optimization/best_models
 data_processing/hyperparameter_optimization/best_models/*
+
+## CNN OPTIOMIZATION
+
+data_processing/CNN_hyperparameter_optimization/checkpoints/*
+data_processing/CNN_hyperparameter_optimization/checkpoints
+data_processing/CNN_hyperparameter_optimization/lightning_logs/*
+data_processing/CNN_hyperparameter_optimization/lightning_logs
+data_processing/CNN_hyperparameter_optimization/logs/*
+data_processing/CNN_hyperparameter_optimization/logs
+data_processing/CNN_hyperparameter_optimization/wandb/*
+data_processing/CNN_hyperparameter_optimization/wandb
+data_processing/CNN_hyperparameter_optimization/wifi-rssi-gradient-search/*
+data_processing/CNN_hyperparameter_optimization/wifi-rssi-gradient-search
+data_processing/CNN_hyperparameter_optimization/models/*
+data_processing/CNN_hyperparameter_optimization/models
+data_processing/CNN_hyperparameter_optimization/model_storage/*
+data_processing/CNN_hyperparameter_optimization/model_storage
+data_processing/CNN_hyperparameter_optimization/__pycache__
+data_processing/CNN_hyperparameter_optimization/__pycache__/*
+data_processing/CNN_hyperparameter_optimization/best_models
+data_processing/CNN_hyperparameter_optimization/best_models/*
