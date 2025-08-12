@@ -1,15 +1,23 @@
 
-import os, torch, warnings, gc, time
+import os, torch
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+torch.set_num_threads(20)
+torch.set_num_interop_threads(20)
+
+
+import os, torch, warnings, gc, time, sys
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import WandbLogger, Logger
+from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping
 import pytorch_lightning as pl
 from model_generation import GeneratedModel
-from data_processing import features_to_sparse_grid, GRID_SIZE
+import pynvml
+from pytorch_lightning.loggers import Logger
 import wandb
-
-warnings.filterwarnings("ignore", category=UserWarning)
 
 class DummyLogger(Logger):
     def log_metrics(self, metrics, step):
@@ -28,7 +36,7 @@ class DummyLogger(Logger):
 
 
 class LightningWrapper(pl.LightningModule):
-    def __init__(self, model: torch.nn.Module, train_data, val_data, learning_rate, weight_decay):
+    def __init__(self, model: torch.nn.Module, train_data, val_data, learning_rate, weight_decay, optimizer_name='adam'):
         super().__init__()
         self.model = model
         self.train_data = train_data
@@ -36,6 +44,7 @@ class LightningWrapper(pl.LightningModule):
         self.loss_fn = torch.nn.MSELoss()
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
+        self.optimizer_name = optimizer_name
         self.save_hyperparameters(ignore=['model'])
 
     def forward(self, x):
@@ -56,7 +65,15 @@ class LightningWrapper(pl.LightningModule):
         return {"val_loss": loss}
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        opt_name = str(self.optimizer_name).lower()
+        if opt_name == 'adamw':
+            optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        elif opt_name == 'sgd':
+            optimizer = torch.optim.SGD(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay, momentum=0.9)
+        elif opt_name == 'rmsprop':
+            optimizer = torch.optim.RMSprop(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay, momentum=0.9)
+        else:
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -67,13 +84,19 @@ class LightningWrapper(pl.LightningModule):
         }
 
 
-X_train_id = None
-y_train_id = None
-X_val_id = None
-y_val_id = None
+
+import os, torch, warnings, gc
+from torch.utils.data import DataLoader, TensorDataset
+from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.callbacks import EarlyStopping
+import pytorch_lightning as pl
+from model_generation import GeneratedModel
+import wandb
+from gpu_fucntion import LightningWrapper
+
 
 def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, use_wandb=False):
-    # Env for wandb/no-tokenizer parallelism noise
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     os.environ["WANDB_SILENT"] = "true"
     os.environ["WANDB_DISABLE_CODE"] = "true"
@@ -86,37 +109,30 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
     X_train, y_train = train_data_ref
     X_val, y_val = val_data_ref
 
-    X_train_np = X_train.cpu().numpy()
-    X_val_np = X_val.cpu().numpy()
-    # Convert 3-AP RSSI vectors into sparse grids on a 32x32 canvas
-    # Labels contain (location_x, location_y); features are 3 channels placed at the grid cell for that location
-    y_train_np = y_train.cpu().numpy()
-    y_val_np = y_val.cpu().numpy()
-    X_train_grid = features_to_sparse_grid(X_train_np, y_train_np, grid_size=GRID_SIZE)
-    X_val_grid = features_to_sparse_grid(X_val_np, y_val_np, grid_size=GRID_SIZE)
-    X_train_t = torch.tensor(X_train_grid, dtype=torch.float32)
-    X_val_t = torch.tensor(X_val_grid, dtype=torch.float32)
-
-
     try:
         for attempt in range(100):
             try:
                 model = GeneratedModel(
-                    input_shape=(X_train_t.shape[1], X_train_t.shape[2], X_train_t.shape[3]),  # channels, height, width
-                    num_classes=y_val.shape[1],
+                    input_size=X_train.shape[1],
+                    output_size=y_val.shape[1],
                     architecture_config=config_dict['config']
                 )
 
-
+                hcfg = config_dict.get('config', {})
+                lr = float(hcfg.get('learning_rate', getattr(config, 'default_learning_rate', 0.001)))
+                wd = float(hcfg.get('weight_decay', getattr(config, 'default_weight_decay', 0.0)))
+                opt = str(hcfg.get('optimizer', 'adam')).lower()
 
                 lightning_model = LightningWrapper(
                     model=model,
-                    train_data=(X_train_t, y_train),
-                    val_data=(X_val_t, y_val),
-                    learning_rate=config.default_learning_rate,
-                    weight_decay=config.default_weight_decay
+                    train_data=(X_train, y_train),
+                    val_data=(X_val, y_val),
+                    learning_rate=lr,
+                    weight_decay=wd,
+                    optimizer_name=opt
                 )
 
+                logger = None
                 if use_wandb:
                     logger = WandbLogger(
                         project="wifi-rssi-gradient-search",
@@ -124,8 +140,7 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                         group=config.group_name,
                         log_model=True
                     )
-                    # Watch the underlying nn.Module
-                    logger.watch(lightning_model.model, log="all", log_freq=100)
+                    logger.watch(model, log="all", log_freq=100)
                     wandb.config.update({
                         "model_index": model_index,
                         "group_name": config.group_name,
@@ -138,11 +153,32 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                 else:
                     logger = DummyLogger()
 
-                # Backoff batch-size on OOM to push more concurrent jobs
-                batch_size = max(config.default_batch_size // (2 ** attempt), 8)
-                train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, num_workers=config.num_cpu)
-                val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, num_workers=config.num_cpu)
+                start_bs = int(config_dict.get('config', {}).get('batch_size', getattr(config, 'default_batch_size', 2048)))
+                batch_size = max(start_bs // (2 ** attempt), 8)
+                # Use far fewer DataLoader workers for small tensors: 0–2 is enough.
+                workers = int(getattr(config, "num_dataloader_workers", 0))
+                loader_kwargs = {
+                    "batch_size": batch_size,
+                    "shuffle": True,
+                    "pin_memory": True,
+                    "num_workers": workers,
+                }
+                if workers > 0:
+                    loader_kwargs["persistent_workers"] = True
+                    loader_kwargs["prefetch_factor"] = 2
 
+                train_loader = DataLoader(
+                    TensorDataset(X_train, y_train),
+                    **loader_kwargs
+                )
+
+                # Validation loader (no shuffle)
+                val_loader_kwargs = dict(loader_kwargs)
+                val_loader_kwargs["shuffle"] = False
+                val_loader = DataLoader(
+                    TensorDataset(X_val, y_val),
+                    **val_loader_kwargs
+                )
                 trainer = Trainer(
                     max_epochs=config.epochs,
                     logger=logger,
@@ -178,6 +214,7 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                 traceback.print_exc()
                 torch.cuda.empty_cache()
                 gc.collect()
+                import time
                 time.sleep(min(5 + attempt * 2, 30))
 
         return {

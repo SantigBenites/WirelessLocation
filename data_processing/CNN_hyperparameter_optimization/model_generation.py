@@ -1,255 +1,357 @@
 
-import torch, random
-import torch.nn as nn
-from typing import Dict, List, Any
-from dataclasses import dataclass
+import math
+import random
+from copy import deepcopy
+from typing import Dict, Any, List, Tuple
 from search_spaces import cnn_search_space
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-# ---- Utilities ----
 
-def _choose(space_key: str):
-    """Pick a random value from the cnn_search_space for a given key."""
-    values = cnn_search_space[space_key]
-    return random.choice(values)
 
-def _maybe_mutate(value, key: str, variation: float):
-    """Slightly perturb a hyperparam based on variation factor."""
-    space = cnn_search_space[key]
-    if isinstance(value, (int, float)):
-        # Pick a neighbor in the discrete set when available
-        if value in space and len(space) > 1:
-            idx = space.index(value)
-            step = 1 if random.random() < 0.5 else -1
-            new_idx = max(0, min(len(space) - 1, idx + step))
-            return space[new_idx]
-        else:
-            return value
-    else:
-        # categorical: with small prob, switch to a different category
-        if random.random() < variation:
-            choices = [v for v in space if v != value]
-            return random.choice(choices) if choices else value
-        return value
+# -------------------------
+# Utilities
+# -------------------------
+def _choose(space: Dict[str, List[Any]], key: str):
+    return random.choice(space[key])
 
-# ---- Model building blocks ----
 
-def activation_layer(name: str) -> nn.Module:
+def _maybe_change(value, options, variation_prob: float):
+    if random.random() < max(0.0, min(1.0, variation_prob)):
+        # Prefer a different value
+        choices = [v for v in options if v != value]
+        return random.choice(choices) if choices else value
+    return value
+
+
+def _activation(name: str):
     name = name.lower()
-    if name == "relu":
-        return nn.ReLU(inplace=True)
-    if name == "leaky_relu":
-        return nn.LeakyReLU(0.1, inplace=True)
-    if name == "elu":
-        return nn.ELU(inplace=True)
-    if name == "selu":
-        return nn.SELU(inplace=True)
-    if name == "tanh":
-        return nn.Tanh()
-    raise ValueError(f"Unknown activation: {name}")
+    return {
+        'relu': nn.ReLU(),
+        'leaky_relu': nn.LeakyReLU(negative_slope=0.01),
+        'elu': nn.ELU(),
+        'selu': nn.SELU(),
+        'tanh': nn.Tanh(),
+    }[name]
 
-def pooling_layer(kind: str, kernel_size: int) -> nn.Module:
-    kind = kind.lower()
-    if kind == "max":
-        return nn.MaxPool2d(kernel_size)
-    if kind == "avg":
-        return nn.AvgPool2d(kernel_size)
-    if kind == "none":
-        return nn.Identity()
-    raise ValueError(f"Unknown pooling type: {kind}")
 
-class ConvBlock(nn.Module):
-    """Conv -> (BN) -> Act -> (Dropout) with optional residual when in==out and stride=1."""
-    def __init__(
-        self,
-        in_ch: int,
-        out_ch: int,
-        kernel_size: int,
-        stride: int,
-        padding: str,
-        use_bn: bool,
-        activation: str,
-        use_dropout: bool,
-        dropout_p: float,
-        residual: bool,
-    ):
+class _LayerNorm1dAcrossChannels(nn.Module):
+    """
+    LayerNorm across channel dimension for 1D sequences.
+    Expects input shape [N, C, L]. Applies LayerNorm over the last dim after permutation: [N, L, C].
+    """
+    def __init__(self, num_channels: int):
         super().__init__()
-        pad = kernel_size // 2 if padding == "same" else 0
-        self.conv = nn.Conv2d(in_ch, out_ch, kernel_size, stride=stride, padding=pad, bias=not use_bn)
-        self.bn = nn.BatchNorm2d(out_ch) if use_bn else nn.Identity()
-        self.act = activation_layer(activation)
-        self.drop = nn.Dropout2d(dropout_p) if use_dropout and dropout_p > 0 else nn.Identity()
-        self.residual = residual and (in_ch == out_ch) and (stride == 1)
+        self.ln = nn.LayerNorm(num_channels)
 
     def forward(self, x):
-        out = self.conv(x)
-        out = self.bn(out)
-        out = self.act(out)
-        out = self.drop(out)
-        if self.residual:
-            out = out + x
-        return out
+        # x: [N, C, L] -> [N, L, C] -> LayerNorm(C) -> [N, C, L]
+        x = x.transpose(1, 2)
+        x = self.ln(x)
+        x = x.transpose(1, 2)
+        return x
 
-# ---- GeneratedModel ----
 
+class _SafePool1d(nn.Module):
+    """
+    A pooling wrapper that clamps kernel_size to at most the current length.
+    Uses stride=kernel_size (downsampling) and ceil_mode=True to be robust on short sequences.
+    """
+    def __init__(self, pool_type: str, kernel_size: int):
+        super().__init__()
+        self.pool_type = pool_type
+        self.kernel_size = kernel_size
+
+    def forward(self, x):
+        if self.pool_type == 'none':
+            return x
+        L = x.shape[-1]
+        k = min(self.kernel_size, L) if L > 0 else self.kernel_size
+        if self.pool_type == 'max':
+            return F.max_pool1d(x, kernel_size=k, stride=k, ceil_mode=True)
+        else:
+            return F.avg_pool1d(x, kernel_size=k, stride=k, ceil_mode=True)
+
+
+class _Norm1d(nn.Module):
+    """
+    Wrapper that applies the requested normalization but safely falls back when
+    the temporal length is 1 (where InstanceNorm would error).
+    """
+    def __init__(self, norm_type: str, num_channels: int):
+        super().__init__()
+        self.norm_type = norm_type
+        self.num_channels = num_channels
+        if norm_type == 'batch':
+            self.bn = nn.BatchNorm1d(num_channels)
+        elif norm_type == 'instance':
+            self.inorm = nn.InstanceNorm1d(num_channels, affine=True, track_running_stats=False)
+            self.ln_fallback = _LayerNorm1dAcrossChannels(num_channels)
+        elif norm_type == 'layer':
+            self.ln = _LayerNorm1dAcrossChannels(num_channels)
+        else:
+            self.id = nn.Identity()
+
+    def forward(self, x):
+        if self.norm_type == 'batch':
+            return self.bn(x)
+        elif self.norm_type == 'instance':
+            # InstanceNorm requires more than 1 spatial element at train time.
+            if x.size(-1) > 1:
+                return self.inorm(x)
+            else:
+                return self.ln_fallback(x)
+        elif self.norm_type == 'layer':
+            return self.ln(x)
+        else:
+            return self.id(x)
+
+
+def _init_weights(module: nn.Module, scheme: str):
+    if isinstance(module, (nn.Conv1d, nn.Linear)):
+        if scheme == 'xavier':
+            nn.init.xavier_uniform_(module.weight)
+        elif scheme == 'kaiming':
+            nn.init.kaiming_uniform_(module.weight, nonlinearity='relu')
+        elif scheme == 'orthogonal':
+            nn.init.orthogonal_(module.weight)
+        # 'default' -> leave as torch default
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+
+
+# -------------------------
+# Generated CNN
+# -------------------------
 class GeneratedModel(nn.Module):
     """
-    CNN that predicts 2D coordinates (location_x, location_y).
-    The architecture is defined by a sampled 'architecture_config' dict.
+    CNN wrapper that accepts tensors of shape [N, F] (e.g., 3 RSSI features)
+    and internally treats them as a 1D signal of length F with 1 input channel.
+    Architecture is driven by "architecture_config".
     """
-    def __init__(self, input_shape, num_classes, architecture_config: Dict[str, Any]):
-        """
-        input_shape: (C, H, W). We expect a grid (e.g., 3x32x32) but can be any size.
-        num_classes: should be 2 (x,y), but kept generic.
-        architecture_config: sampled from cnn_search_space.
-        """
+    def __init__(self, input_size: int, output_size: int, architecture_config: Dict[str, Any]):
         super().__init__()
-        C, H, W = input_shape
-        cfg = architecture_config.copy()
+        self.cfg = deepcopy(architecture_config)
 
-        self.cfg = cfg
-        self.save_hyperparameters = getattr(nn.Module, "save_hyperparameters", lambda *args, **kwargs: None)  # placeholder
+        # Base hyperparams
+        num_layers = int(self.cfg['num_conv_layers'])
+        filters = int(self.cfg['filters_per_layer'])
+        kernel = int(self.cfg['kernel_size'])
+        stride = int(self.cfg['stride'])
+        padding = self.cfg.get('padding', 'same')
+        activation = _activation(self.cfg['activation'])
+        use_dropout = bool(self.cfg['use_dropout'])
+        dropout_p = float(self.cfg['dropout']) if use_dropout else 0.0
+        pooling_type = self.cfg['pooling_type']
+        pool_size = int(self.cfg['pool_size'])
+        residual = bool(self.cfg['residual_connections'])
+        normalization = self.cfg.get('normalization', 'none')
+        batch_norm_flag = bool(self.cfg.get('batch_norm', False))  # legacy
 
-        num_conv_layers = cfg["num_conv_layers"]
-        filters_per_layer = cfg["filters_per_layer"]
-        kernel_size = cfg["kernel_size"]
-        stride = cfg["stride"]
-        padding = cfg["padding"]
-        activation = cfg["activation"]
-        batch_norm = cfg["batch_norm"]
-        use_dropout = cfg["use_dropout"]
-        dropout = cfg["dropout"]
-        pooling_type = cfg["pooling_type"]
-        pool_size = cfg["pool_size"]
-        residual_connections = cfg["residual_connections"]
-        global_pool = cfg["global_pool"]
-        num_dense_layers = cfg["num_dense_layers"]
-        dense_size = cfg["dense_size"]
-        dense_dropout = cfg["dense_dropout"]
-
+        # We always start with 1 input channel and sequence length = input_size
+        in_channels = 1
         layers: List[nn.Module] = []
+        proj_layers: List[nn.Module] = []  # for residual projections when shapes mismatch
+        current_len = input_size
+        current_channels = in_channels
 
-        in_ch = C
-        # Build stacked conv blocks
-        for i in range(num_conv_layers):
-            out_ch = filters_per_layer
-            layers.append(
-                ConvBlock(
-                    in_ch=in_ch,
-                    out_ch=out_ch,
-                    kernel_size=kernel_size,
-                    stride=stride,
-                    padding=padding,
-                    use_bn=batch_norm,
-                    activation=activation,
-                    use_dropout=use_dropout,
-                    dropout_p=dropout,
-                    residual=residual_connections,
-                )
+        for li in range(num_layers):
+            # Decide effective padding for this layer to avoid zero/negative length for "valid" with large kernel
+            eff_padding = padding
+            if eff_padding == 'valid' and kernel > current_len:
+                eff_padding = 'same'  # auto-correct to keep model valid on tiny inputs
+
+            # Convert 'same'/'valid' to numeric padding to support stride>1
+            if eff_padding == 'same':
+                conv_padding = (kernel - 1) // 2  # assumes dilation=1 and odd kernels
+                eff_mode = 'same'
+            else:  # 'valid'
+                conv_padding = 0
+                eff_mode = 'valid'
+
+            conv = nn.Conv1d(
+                in_channels=current_channels,
+                out_channels=filters,
+                kernel_size=kernel,
+                stride=stride,
+                padding=conv_padding,
             )
-            if pooling_type != "none":
-                layers.append(pooling_layer(pooling_type, pool_size))
-            in_ch = out_ch
+            block: List[nn.Module] = [conv]
 
-        self.conv = nn.Sequential(*layers)
+            # Normalization choices
+            norm_choice = normalization if normalization != 'none' else ('batch' if batch_norm_flag else 'none')
+            if norm_choice in ('batch','instance','layer'):
+                block.append(_Norm1d(norm_choice, filters))
 
-        # Global pooling to make the head shape-agnostic
-        if global_pool == "avg":
-            self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
-        elif global_pool == "max":
-            self.global_pool = nn.AdaptiveMaxPool2d((1, 1))
-        else:
-            # Keep spatial dims; we'll flatten whatever remains
-            self.global_pool = nn.Identity()
+            block.append(deepcopy(activation))
 
-        # Head
-        if global_pool in ("avg", "max"):
-            head_in = in_ch
-        else:
-            # We don't know H/W after convs; infer at runtime with a dummy pass
-            with torch.no_grad():
-                dummy = torch.zeros(1, C, H, W)
-                feat = self.global_pool(self.conv(dummy))
-                head_in = feat.view(1, -1).shape[1]
+            # Optional pooling
+            if pooling_type != 'none':
+                block.append(_SafePool1d(pooling_type, pool_size))
 
-        mlp: List[nn.Module] = []
-        in_dim = head_in
-        for _ in range(num_dense_layers):
-            mlp += [nn.Linear(in_dim, dense_size), activation_layer(activation)]
-            if dense_dropout and dense_dropout > 0:
-                mlp += [nn.Dropout(dense_dropout)]
-            in_dim = dense_size
-        mlp.append(nn.Linear(in_dim, num_classes))
-        self.head = nn.Sequential(*mlp)
+            # Optional dropout
+            if use_dropout and dropout_p > 0.0:
+                block.append(nn.Dropout(p=dropout_p))
+
+            layers.append(nn.Sequential(*block))
+
+            # For residuals, build a projection if needed
+            if residual:
+                needs_proj = (current_channels != filters) or (stride != 1) or (pooling_type != 'none')
+                if needs_proj:
+                    # 1x1 conv to match channels + stride/pool downsampling with SafePool if needed
+                    proj_block: List[nn.Module] = [nn.Conv1d(current_channels, filters, kernel_size=1, stride=stride, padding=0)]
+                    if pooling_type != 'none':
+                        proj_block.append(_SafePool1d(pooling_type, pool_size))
+                    proj_layers.append(nn.Sequential(*proj_block))
+                else:
+                    proj_layers.append(nn.Identity())
+
+            # Update trackers (approximate current length under "same" or "valid")
+            if eff_mode == 'same':
+                current_len = math.ceil(current_len / stride)
+            else:
+                # valid padding
+                current_len = math.floor((current_len - kernel + 1 + (stride - 1)) / stride)
+                current_len = max(current_len, 1)
+            if pooling_type != 'none':
+                # using SafePool1d -> downsample by ~pool_size (ceil_mode)
+                current_len = math.ceil(current_len / max(1, pool_size))
+            current_channels = filters
+
+        self.conv_blocks = nn.ModuleList(layers)
+        self.residual = residual
+        self.projections = nn.ModuleList(proj_layers) if residual else None
+
+        # Head: global average pool to be independent of final length, then Linear
+        self.gap = nn.AdaptiveAvgPool1d(1)
+        self.head = nn.Sequential(
+            nn.Flatten(),                     # [N, C, 1] -> [N, C]
+            nn.Linear(current_channels, max(16, current_channels // 2)),
+            nn.ReLU(),
+            nn.Linear(max(16, current_channels // 2), output_size)
+        )
+
+        # Initialization
+        init_scheme = self.cfg.get('initialization', 'default')
+        if init_scheme != 'default':
+            self.apply(lambda m: _init_weights(m, init_scheme))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x is expected as (N, C, H, W). If it's flat (N, C), lift to 1x1 map.
-        if x.ndim == 2:
-            N, C = x.shape
-            x = x.view(N, C, 1, 1)
-        feats = self.conv(x)
-        feats = self.global_pool(feats)
-        out = feats.view(feats.size(0), -1)
-        return self.head(out)
+        # Expect x: [N, F]. Convert to [N, 1, F]
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        elif x.dim() == 3 and x.shape[1] != 1:
+            # if user already provided [N, F, 1], permute to [N, 1, F]
+            if x.shape[2] == 1:
+                x = x.transpose(1, 2)
+            else:
+                # assume it's [N, C, L], keep as-is
+                pass
+
+        out = x
+        if self.residual:
+            for block, proj in zip(self.conv_blocks, self.projections):
+                residual = proj(out)
+                out = block(out)
+                # lengths should match due to SafePool + projection stride/pool
+                if residual.shape[-1] != out.shape[-1]:
+                    # As a last resort, adapt with interpolation
+                    out_len = out.shape[-1]
+                    residual = F.interpolate(residual, size=out_len, mode="nearest")
+                out = out + residual
+        else:
+            for block in self.conv_blocks:
+                out = block(out)
+
+        out = self.gap(out)
+        out = self.head(out)
+        return out
 
 
-# ---- Config Generators ----
+# -------------------------
+# Config generators
+# -------------------------
+def _build_config(space: Dict[str, List[Any]]) -> Dict[str, Any]:
+    """
+    Sample a valid architecture config from the provided search space.
+    Adds small safety adjustments for tiny inputs (e.g., when padding='valid' with large kernels).
+    """
+    cfg = {
+        'num_conv_layers': _choose(space, 'num_conv_layers'),
+        'filters_per_layer': _choose(space, 'filters_per_layer'),
+        'kernel_size': _choose(space, 'kernel_size'),
+        'stride': _choose(space, 'stride'),
+        'padding': _choose(space, 'padding'),
+        'activation': _choose(space, 'activation'),
+        'batch_norm': _choose(space, 'batch_norm'),
+        'use_dropout': _choose(space, 'use_dropout'),
+        'dropout': _choose(space, 'dropout'),
+        'pooling_type': _choose(space, 'pooling_type'),
+        'pool_size': _choose(space, 'pool_size'),
+        'residual_connections': _choose(space, 'residual_connections'),
+        'learning_rate': _choose(space, 'learning_rate'),
+        'weight_decay': _choose(space, 'weight_decay'),
+        'optimizer': _choose(space, 'optimizer'),
+        'batch_size': _choose(space, 'batch_size'),
+        'normalization': _choose(space, 'normalization'),
+        'initialization': _choose(space, 'initialization'),
+    }
 
-def generate_random_model_configs(number_of_models: int):
-    """Return a list of dicts with 'config' for each randomly generated architecture."""
+    # If dropout is disabled, keep value but it won't be used.
+    # If pooling is 'none' pool_size is irrelevant.
+    return cfg
+
+
+def generate_random_model_configs(number_of_models: int,
+                                  space: Dict[str, List[Any]] = None) -> List[Dict[str, Any]]:
+    """
+    Produce a list of configs with the shape expected by the training loop:
+        { "name": "...", "config": <arch dict> }
+    """
+    if space is None:
+        space = cnn_search_space
     configs = []
-    for i in range(number_of_models):
-        cfg = {
-            "num_conv_layers": _choose("num_conv_layers"),
-            "filters_per_layer": _choose("filters_per_layer"),
-            "kernel_size": _choose("kernel_size"),
-            "stride": _choose("stride"),
-            "padding": _choose("padding"),
-            "activation": _choose("activation"),
-            "batch_norm": _choose("batch_norm"),
-            "use_dropout": _choose("use_dropout"),
-            "dropout": _choose("dropout"),
-            "pooling_type": _choose("pooling_type"),
-            "pool_size": _choose("pool_size"),
-            "residual_connections": _choose("residual_connections"),
-            "global_pool": _choose("global_pool"),
-            "num_dense_layers": _choose("num_dense_layers"),
-            "dense_size": _choose("dense_size"),
-            "dense_dropout": _choose("dense_dropout"),
-            "input_channels": _choose("input_channels"),
-        }
-
-        # Sanity adjustments
-        if cfg["pooling_type"] == "none":
-            cfg["pool_size"] = 2  # unused, but keep valid
-        if cfg["global_pool"] == "none" and cfg["num_dense_layers"] == 0:
-            # ensure some capacity before output
-            cfg["num_dense_layers"] = 1
-
+    for _ in range(number_of_models):
+        cfg = _build_config(space)
         configs.append({
-            "config": cfg,
-            "name": f"rand_cnn_{i}"
+            "name": "cnn_random",
+            "config": cfg
         })
     return configs
 
-def generate_similar_model_configs(base_model: Dict[str, Any], number_of_models: int, variation_factor: float = 0.2):
-    """Mutate a base architecture slightly to explore nearby configs."""
-    base_cfg = base_model.get("config", {})
-    configs = []
-    for i in range(number_of_models):
-        cfg = {}
-        for k, v in base_cfg.items():
-            if k not in cnn_search_space:
-                cfg[k] = v
+
+def _neighbors(options: List[Any], value: Any) -> List[Any]:
+    # For discrete options, just allow any value != current
+    return [o for o in options if o != value] or [value]
+
+
+def generate_similar_model_configs(base_model: Dict[str, Any],
+                                   number_of_models: int,
+                                   variation_factor: float = 0.2,
+                                   space: Dict[str, List[Any]] = None) -> List[Dict[str, Any]]:
+    """
+    Create variations of a base model by randomly changing each hyperparameter with
+    probability = variation_factor.
+    """
+    if space is None:
+        space = cnn_search_space
+
+    base_cfg = deepcopy(base_model.get("config", base_model))
+    variants = []
+
+    for _ in range(number_of_models):
+        new_cfg = deepcopy(base_cfg)
+        for k, options in space.items():
+            if k not in new_cfg:
+                # If the base model came from a different space, ensure key is present
+                new_cfg[k] = _choose(space, k)
                 continue
-            cfg[k] = _maybe_mutate(v, k, variation_factor)
-        # Occasionally flip residuals/dropout together
-        if random.random() < variation_factor * 0.5:
-            cfg["residual_connections"] = not cfg.get("residual_connections", False)
-        if random.random() < variation_factor * 0.5:
-            cfg["use_dropout"] = not cfg.get("use_dropout", True)
+            new_cfg[k] = _maybe_change(new_cfg[k], options, variation_factor)
 
-        configs.append({
-            "config": cfg,
-            "name": f"{base_model.get('name','base')}_mut{i}"
+        variants.append({
+            "name": f"{base_model.get('name', 'cnn_base')}_var",
+            "config": new_cfg
         })
-    return configs
+    return variants

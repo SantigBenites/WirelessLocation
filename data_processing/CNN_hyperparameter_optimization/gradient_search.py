@@ -7,7 +7,7 @@ from model_generation import generate_random_model_configs, generate_similar_mod
 from config import TrainingConfig
 from gpu_fucntion import train_model
 
-@ray.remote(num_gpus=0.50)
+@ray.remote(num_gpus=0.50, num_cpus=10)
 def ray_train_model(cfg, train_data_ref, val_data_ref, model_index, config, use_wandb):
     max_attempts = 5
     for attempt in range(max_attempts):
@@ -32,6 +32,8 @@ def ray_train_model(cfg, train_data_ref, val_data_ref, model_index, config, use_
     }
 
 def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config: TrainingConfig):
+    ray.init(ignore_reinit_error=True, include_dashboard=False)
+
     X_train = torch.tensor(X_train, dtype=torch.float32)
     y_train = torch.tensor(y_train, dtype=torch.float32)
     X_val = torch.tensor(X_val, dtype=torch.float32)

@@ -72,9 +72,10 @@ if __name__ == '__main__':
     try:
         config = TrainingConfig()
 
-        os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,5"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1,3,4,5"
 
-        ray.init(_memory=8 * 1024 * 1024 * 1024, object_store_memory=6 * 1024 * 1024 * 1024,include_dashboard=False,ignore_reinit_error=True, log_to_driver=True)
+        ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
+        # Suppress Ray internal logs
         logging.getLogger("ray").setLevel(logging.ERROR)
 
         experiments = {
