@@ -9,9 +9,6 @@ import multiprocessing
 import logging
 import ray
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ['TORCH_USE_CUDA_DSA'] = "1"
-
 # Configure environment
 torch.set_float32_matmul_precision('high')
 warnings.filterwarnings("ignore", category=FutureWarning)

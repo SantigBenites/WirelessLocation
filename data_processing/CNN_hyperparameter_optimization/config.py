@@ -8,7 +8,7 @@ class TrainingConfig:
 
     # Training settings
     epochs: int = 20
-    training_depth: int = 10
+    training_depth: int = 8
     models_per_depth: int = 8
     num_gpus: int = 6
     num_cpu = 24
@@ -25,7 +25,7 @@ class TrainingConfig:
     default_weight_decay: float = 0.0
 
     # Global search configuration
-    num_gradient_runs: int = 10
+    num_gradient_runs: int = 5
 
     # Model Storage
     model_save_dir = "model_storage"

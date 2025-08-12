@@ -14,7 +14,7 @@ cnn_search_space = {
     'learning_rate': [0.001, 0.0005, 0.0001],  # Learning rate
     'weight_decay': [0.0, 0.0001, 0.00001],  # L2 regularization
     'optimizer': ['adam', 'adamw', 'sgd', 'rmsprop'],  # Optimizers
-    'batch_size': [32, 64, 128, 256],  # Mini-batch size
+    'batch_size': [64, 128, 256, 512],  # Mini-batch size
     'normalization': ['none', 'batch', 'layer', 'instance'],  # Normalization methods
     'initialization': ['default', 'xavier', 'kaiming', 'orthogonal']  # Weight init
 }

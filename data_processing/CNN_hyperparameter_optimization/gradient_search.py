@@ -7,7 +7,7 @@ from model_generation import generate_random_model_configs, generate_similar_mod
 from config import TrainingConfig
 from gpu_fucntion import train_model
 
-@ray.remote(num_gpus=0.50, num_cpus=10)
+@ray.remote(num_gpus=1)
 def ray_train_model(cfg, train_data_ref, val_data_ref, model_index, config, use_wandb):
     max_attempts = 5
     for attempt in range(max_attempts):
