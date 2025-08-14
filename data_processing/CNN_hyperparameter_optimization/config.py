@@ -13,7 +13,7 @@ class TrainingConfig:
     num_gpus: int = 6
     num_cpu = 24
     group_name: str = "CNN"
-    num_dataloader_workers = 10
+    num_dataloader_workers = 0
 
     # Model generation
     initial_variation_factor: float = 0.3
