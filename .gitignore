@@ -70,3 +70,12 @@ data_processing/LSTM_hyperparameter_optimization/__pycache__
 data_processing/LSTM_hyperparameter_optimization/__pycache__/*
 data_processing/LSTM_hyperparameter_optimization/best_models
 data_processing/LSTM_hyperparameter_optimization/best_models/*
+
+# Validation
+
+validation/model_per_dataset_validation/model_storage/*
+validation/model_per_dataset_validation/model_storage
+validation/model_per_dataset_validation/__pycache__
+validation/model_per_dataset_validation/__pycache__/*
+validation/model_per_dataset_validation/best_models
+validation/model_per_dataset_validation/best_models/*
