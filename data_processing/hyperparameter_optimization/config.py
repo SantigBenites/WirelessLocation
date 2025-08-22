@@ -10,7 +10,6 @@ class TrainingConfig:
     epochs: int = 40
     training_depth: int = 10
     models_per_depth: int = 12
-    num_gpus: int = 6
     num_cpu = 24
     group_name: str = "CNN"
 

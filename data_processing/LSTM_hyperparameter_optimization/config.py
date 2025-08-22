@@ -9,10 +9,10 @@ class TrainingConfig:
     # Training settings
     epochs: int = 20
     training_depth: int = 8
-    models_per_depth: int = 8
+    models_per_depth: int = 6
     num_cpu = 24
-    group_name: str = "CNN"
-    num_dataloader_workers = 0
+    group_name: str = "LSTM"
+    num_dataloader_workers = 95
 
     # Model generation
     initial_variation_factor: float = 0.3
