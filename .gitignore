@@ -27,6 +27,11 @@ data_processing/hyperparameter_optimization/__pycache__
 data_processing/hyperparameter_optimization/__pycache__/*
 data_processing/hyperparameter_optimization/best_models
 data_processing/hyperparameter_optimization/best_models/*
+data_processing/hyperparameter_optimization/model_storage_second
+data_processing/hyperparameter_optimization/model_storage_second/*
+data_processing/hyperparameter_optimization/models_second
+data_processing/hyperparameter_optimization/models_second/*
+
 
 ## CNN OPTIOMIZATION
 
@@ -48,7 +53,11 @@ data_processing/CNN_hyperparameter_optimization/__pycache__
 data_processing/CNN_hyperparameter_optimization/__pycache__/*
 data_processing/CNN_hyperparameter_optimization/best_models
 data_processing/CNN_hyperparameter_optimization/best_models/*
-
+data_processing/CNN_hyperparameter_optimization/model_storage_second
+data_processing/CNN_hyperparameter_optimization/model_storage_second/*
+data_processing/CNN_hyperparameter_optimization/models_second
+data_processing/CNN_hyperparameter_optimization/models_second/*
+data_processing/CNN_hyperparameter_optimization/best_models*
 
 ## LSTM OPTIOMIZATION
 

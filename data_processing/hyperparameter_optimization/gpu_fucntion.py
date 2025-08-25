@@ -150,10 +150,21 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                 if use_wandb:
                     wandb.log({"final_val_loss": val_loss.item() if val_loss else float('inf')})
 
+                # --- Plain PyTorch save (recommended for inference) ---
                 os.makedirs(config.model_save_dir, exist_ok=True)
-                model_save_path = os.path.join(config.model_save_dir, f"{config_dict['name']}.ckpt")
-                trainer.save_checkpoint(model_save_path)
-                print(f"💾 Saved model to {model_save_path}")
+                simple_save_path = os.path.join(config.model_save_dir, f"{config_dict['name']}.pt")
+                torch.save({
+                    "state_dict": lightning_model.model.state_dict(),
+                    "arch_config": config_dict["config"],
+                    "input_size": X_train.shape[1],
+                    "output_size": y_val.shape[1],
+                }, simple_save_path)
+                print(f"💾 Saved plain model weights to {simple_save_path}")
+
+                #os.makedirs(config.model_save_dir, exist_ok=True)
+                #model_save_path = os.path.join(config.model_save_dir, f"{config_dict['name']}.ckpt")
+                #trainer.save_checkpoint(model_save_path)
+                #print(f"💾 Saved model to {model_save_path}")
 
                 return {
                     **config_dict,

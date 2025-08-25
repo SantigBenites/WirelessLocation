@@ -7,11 +7,11 @@ class TrainingConfig:
     random_state: int = 42
 
     # Training settings
-    epochs: int = 40
+    epochs: int = 30
     training_depth: int = 10
     models_per_depth: int = 12
     num_cpu = 24
-    group_name: str = "CNN"
+    group_name: str = "NN_second_experiment"
 
 
     # Model generation
@@ -27,6 +27,6 @@ class TrainingConfig:
     num_gradient_runs: int = 10
 
     # Model Storage
-    model_save_dir = "model_storage"
+    model_save_dir = "model_storage_second"
     experiment_name = "experiment"
     run_index = 0
