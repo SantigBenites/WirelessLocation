@@ -31,6 +31,7 @@ MODEL_DIR = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparame
 DB_NAME   = "wifi_fingerprinting_data"      # MongoDB database name
 MONGO_URI = "mongodb://localhost:28910/"    # optional (informational)
 DEVICE    = "cpu"                           # e.g., "cpu" or "cuda:0"
+VAL_BATCH_SIZE = 2048
 # ============================
 
 # Project modules
@@ -117,27 +118,49 @@ def load_model_bundle(pt_path: Path, map_location: str = "cpu"):
     return model, bundle
 
 
-def metrics(y_true: np.ndarray, y_pred: np.ndarray):
+def metrics(y_true: np.ndarray, y_pred: np.ndarray, batch_size: int | None = None):
+    """Return both global metrics and a Lightning-like val_loss.
+
+    - Global MSE/MAE/RMSE/R2 use the entire array at once.
+    - val_loss emulates Lightning's epoch metric: mean of per-batch MSEs.
+    """
     diff = y_pred - y_true
+
+    # Global (over all samples at once)
     mse = float(np.mean(np.square(diff)))
     mae = float(np.mean(np.abs(diff)))
     rmse = float(math.sqrt(mse))
     ss_res = float(np.sum(np.square(diff)))
     ss_tot = float(np.sum(np.square(y_true - np.mean(y_true, axis=0, keepdims=True))))
     r2 = float(1.0 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
-    return {"mse": mse, "mae": mae, "rmse": rmse, "r2": r2}
+
+    # Lightning-like: mean of batch losses (each batch loss is an MSE over that batch)
+    if batch_size is None or batch_size <= 0:
+        val_loss = mse  # fallback to global
+    else:
+        per_batch = []
+        n = len(y_true)
+        for i in range(0, n, batch_size):
+            d = y_pred[i:i+batch_size] - y_true[i:i+batch_size]
+            per_batch.append(float(np.mean(np.square(d))))
+        val_loss = float(np.mean(per_batch))
+
+    return {"val_loss": val_loss, "mse": mse, "mae": mae, "rmse": rmse, "r2": r2}
+
 
 
 def evaluate_model(model: torch.nn.Module, X: np.ndarray, y: np.ndarray, device: torch.device):
     with torch.no_grad():
-        bs = 2048
+        bs = VAL_BATCH_SIZE
         preds = []
         for i in range(0, len(X), bs):
             xb = torch.from_numpy(X[i:i+bs]).to(device)
             yb_pred = model(xb).cpu().numpy()
             preds.append(yb_pred)
         y_pred = np.vstack(preds).astype(np.float32)
-    return metrics(y, y_pred)
+    # Compute metrics; val_loss is Lightning-like mean of per-batch MSEs using the same bs
+    return metrics(y, y_pred, batch_size=VAL_BATCH_SIZE)
+
 
 
 def scan_models(model_dir: Path):
