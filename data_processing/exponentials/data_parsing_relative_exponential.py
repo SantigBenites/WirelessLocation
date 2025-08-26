@@ -1,18 +1,53 @@
 from pymongo import MongoClient
 from datetime import datetime
 from triangle_dict import triangle_dictionary, ap_mapping
-
-
-import sys
+from typing import Dict, Optional, Sequence
 from collections import defaultdict
 
-def transform_wifi_data(db, start_time=None, end_time=None,
+
+def _pairwise_ratios(values: Dict[str, Optional[float]], cols: Sequence[str]) -> Dict[str, Optional[float]]:
+    """
+    Build {f"{a}_over_{b}": values[a]/values[b]} for all a != b in cols.
+    Returns None when denominator is 0 or either value is None.
+    """
+    out: Dict[str, Optional[float]] = {}
+    for a in cols:
+        for b in cols:
+            if a == b:
+                continue
+            va = values.get(a)
+            vb = values.get(b)
+            key = f"{a}_over_{b}"
+            out[key] = (va / vb) if (va is not None and vb not in (None, 0)) else None
+    return out
+
+def normalize_picos_coordinates(x, y, origin_x, origin_y):
+
+ 
+    # Normlized interval sizes
+    pico_interval = 1 / 10 
+    ap_interval = 1/4   
+
+    # Normalized locations
+    normalized_x = pico_interval * x
+    normalized_y = pico_interval * y
+    normalized_origin_x = ap_interval * origin_x
+    normalized_origin_y = ap_interval * origin_y
+    
+    
+    return (normalized_x-normalized_origin_x, normalized_y-normalized_origin_y)
+
+def calculate_centroid(point1, point2, point3):
+    cx = (point1[0] + point2[0] + point3[0]) / 3
+    cy = (point1[1] + point2[1] + point3[1]) / 3
+    return (cx, cy)
+
+import sys
+def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_time=None,
                         dry_run=False, output_collection_name="wifi_data_filtered",
-                        input_collection_name="wifi_data", ap_mapping=None, output_db=None,
-                        debug=False):
+                        input_collection_name="wifi_data", ap_mapping=None, output_db=None, debug = False):
     """
     Transform WiFi scan data into normalized format and write to output DB/collection.
-    Also fills missing AP RSSI values with the triangle-wide average for that AP.
     """
     if ap_mapping is None:
         raise ValueError("ap_mapping must be provided")
@@ -24,7 +59,6 @@ def transform_wifi_data(db, start_time=None, end_time=None,
         36: 6, 37: 7, 38: 8, 39: 9, 30: 10
     }
 
-    # Build time match
     match_stage = {}
     if start_time:
         match_stage["timestamp"] = {"$gte": start_time.timestamp()}
@@ -32,8 +66,13 @@ def transform_wifi_data(db, start_time=None, end_time=None,
         match_stage.setdefault("timestamp", {})["$lte"] = end_time.timestamp()
 
     collection = db[input_collection_name]
-    normalized_ap_keys = set(ap_mapping.keys())     # set of BSSIDs we care about
-    ap_labels = set(ap_mapping.values())            # e.g., {"freind1_rssi", "freind2_rssi", ...}
+    normalized_ap_keys = set(ap_mapping.keys())
+    ap_labels = set(ap_mapping.values())
+
+    if match_stage:
+        raw_docs = list(collection.find(match_stage))
+    else:
+        raw_docs = list(collection.find())
 
     # Pull docs for this triangle window
     raw_docs = list(collection.find(match_stage)) if match_stage else list(collection.find())
@@ -93,10 +132,14 @@ def transform_wifi_data(db, start_time=None, end_time=None,
             timestamp = doc["timestamp"]
 
             if raw_y is None:
-                # Unknown Pico -> skip
                 continue
 
-            # Start with None for all labels
+            norm_x, norm_y = normalize_picos_coordinates(
+                raw_x, raw_y,
+                origin_x if origin_x is not None else 0,
+                origin_y if origin_y is not None else 0
+            )
+
             ap_rssi = {label: None for label in ap_labels}
 
             # Extract this scan's best RSSI per label (same logic as above)
@@ -126,11 +169,16 @@ def transform_wifi_data(db, start_time=None, end_time=None,
                     # Keep integer-like RSSI; round the average
                     ap_rssi[label] = int(round(label_avg[label]))
 
+            # 👉 NEW: compute pairwise RSSI ratios for the three friends
+            rssi_cols_fixed = ["freind1_rssi", "freind2_rssi", "freind3_rssi"]
+            ratio_cols = _pairwise_ratios(ap_rssi, rssi_cols_fixed)
+
             new_doc = {
-                "location_x": raw_x,
-                "location_y": raw_y,
+                "location_x": norm_x,
+                "location_y": norm_y,
                 "timestamp": timestamp,
-                **ap_rssi
+                **ap_rssi,      # keep your original RSSI values
+                **ratio_cols    # add ratio features like freind1_rssi_over_freind2_rssi, etc.
             }
 
             normalized_results.append(new_doc)
@@ -139,20 +187,18 @@ def transform_wifi_data(db, start_time=None, end_time=None,
             print(f"⚠️ Error processing document: {e}")
             continue
 
-    # ---------- 3) Write or preview ----------
     if dry_run:
         print(f"Dry run: Would process {len(normalized_results)} documents")
-        print(f"Documents would be written to {output_db.name}.{output_collection_name}")
+        print(f"Documentos would be processed into {output_db.name}.{output_collection_name}")
         if normalized_results:
             doc = normalized_results[0]
-            print(f"  location: {doc['location_x']:.4f},{doc['location_y']:.4f}")
-            from datetime import datetime as _dt
-            print(f"  timestamp: {_dt.fromtimestamp(doc['timestamp'])}")
-            shown = set()
+            print(f"  Normalized location: {doc['location_x']:.4f},{doc['location_y']:.4f}")
+            print(f"  timestamp: {datetime.fromtimestamp(doc['timestamp'])}")
+            seen = set()
             for label in ap_labels:
-                if label not in shown:
+                if label not in seen:
                     print(f"  {label}: {doc.get(label, 'N/A')}")
-                    shown.add(label)
+                    seen.add(label)
         return normalized_results
 
     if normalized_results:
@@ -164,7 +210,6 @@ def transform_wifi_data(db, start_time=None, end_time=None,
     else:
         print("No documents matched the criteria")
         return []
-
 
 
 
@@ -189,12 +234,16 @@ if __name__ == "__main__":
         end_time            = current_triangle["end"]
         ap_positions        = current_triangle["ap_positions"]
 
+        # Calculate centroid of the triangle for normalization
+        origin_x, origin_y = calculate_centroid(
+            *[ap_positions[ap] for ap in ["freind1", "freind2", "freind3"]]
+        )
 
         # Select input DB
         input_db = client[input_db_name]
 
         # Output DB is always this
-        output_db = client["wifi_fingerprinting_data_raw"]
+        output_db = client["wifi_fingerprinting_data_exponential"]
 
         # Collection name will match triangle name (e.g., reto_grande_wifi_client_data_global)
         output_collection = triangle_name
@@ -202,6 +251,8 @@ if __name__ == "__main__":
         # Run transform
         transform_wifi_data(
             db=input_db,
+            origin_x=origin_x,
+            origin_y=origin_y,
             start_time=start_time,
             end_time=end_time,
             dry_run=False,

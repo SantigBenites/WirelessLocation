@@ -5,7 +5,7 @@ import pandas as pd
 # connect
 
 client = MongoClient("mongodb://localhost:28910/")
-db = client["wifi_fingerprinting_data"]
+db = client["wifi_fingerprinting_data_raw"]
 collection = db["equilatero_grande_outdoor"]
 
 # fetch all documents
@@ -18,4 +18,4 @@ df = pd.DataFrame(list(cursor))
 df.drop(columns=["_id"], inplace=True)
 
 # save to CSV
-df.to_csv("users.csv", index=False)
+df.to_csv("rssi_data.csv", index=False)
