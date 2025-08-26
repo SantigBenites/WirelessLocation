@@ -31,7 +31,8 @@ class LightningWrapper(pl.LightningModule):
         self.model = model
         self.train_data = train_data
         self.val_data = val_data
-        self.loss_fn = torch.nn.MSELoss()
+        self.mse_loss = torch.nn.MSELoss(reduction="mean")
+        self.l1_loss  = torch.nn.L1Loss(reduction="mean")  # absolute loss (MAE)
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
         self.save_hyperparameters(ignore=['model'])
@@ -42,24 +43,36 @@ class LightningWrapper(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
-        loss = self.loss_fn(y_hat, y)
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
-        return loss
+
+        mse = self.mse_loss(y_hat, y)
+        mae = self.l1_loss(y_hat, y)
+
+        # optimize w.r.t. MSE
+        self.log('train_mse', mse, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('train_mae', mae, on_step=True, on_epoch=True, prog_bar=False)
+
+        return mse
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
-        loss = self.loss_fn(y_hat, y)
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        return {"val_loss": loss}
+
+        mse = self.mse_loss(y_hat, y)
+        mae = self.l1_loss(y_hat, y)
+
+        self.log('val_mse', mse, on_step=False, on_epoch=True, prog_bar=True)
+        self.log('val_mae', mae, on_step=False, on_epoch=True, prog_bar=False)
+
+        return {"val_mse": mse, "val_mae": mae}
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=2)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
-                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=2),
-                "monitor": "val_loss",
+                "scheduler": scheduler,
+                "monitor": "val_mse",  # match the metric name you log
                 "frequency": 1,
             },
         }
@@ -137,7 +150,7 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
                     logger=logger,
                     enable_progress_bar=False,
                     enable_model_summary=True,
-                    callbacks=[EarlyStopping(monitor="val_loss", patience=8)],
+                    callbacks=[EarlyStopping(monitor="val_mse", patience=8)],
                     accelerator="gpu",
                     devices=1,
                     log_every_n_steps=50,
@@ -146,9 +159,9 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
 
                 trainer.fit(lightning_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
-                val_loss = trainer.callback_metrics.get("val_loss", None)
+                val_mse = trainer.callback_metrics.get("val_mse", None)
                 if use_wandb:
-                    wandb.log({"final_val_loss": val_loss.item() if val_loss else float('inf')})
+                    wandb.log({"final_val_mse": val_mse.item() if val_mse is not None else float('inf')})
 
                 # --- Plain PyTorch save (recommended for inference) ---
                 os.makedirs(config.model_save_dir, exist_ok=True)
@@ -168,7 +181,7 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
 
                 return {
                     **config_dict,
-                    "val_loss": val_loss.item() if val_loss else float('inf'),
+                    "val_mse": val_mse.item() if val_mse else float('inf'),
                     "status": "success"
                 }
 
@@ -183,7 +196,7 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
 
         return {
             **config_dict,
-            "val_loss": float("inf"),
+            "val_mse": float("inf"),
             "status": "failed",
             "error": "Training failed after 100 attempts"
         }
@@ -191,7 +204,7 @@ def train_model(config_dict, train_data_ref, val_data_ref, model_index, config, 
     except Exception as e:
         return {
             **config_dict,
-            "val_loss": float("inf"),
+            "val_mse": float("inf"),
             "status": "failed",
             "error": str(e)
         }

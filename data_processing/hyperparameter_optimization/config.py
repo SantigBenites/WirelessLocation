@@ -5,6 +5,7 @@ class TrainingConfig:
     # Data settings
     test_size: float = 0.2
     random_state: int = 42
+    db_name="wifi_fingerprinting_data_exponential"
 
     # Training settings
     epochs: int = 30

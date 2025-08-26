@@ -26,7 +26,7 @@ def ray_train_model(cfg, train_data_ref, val_data_ref, model_index, config, use_
             time.sleep(5 + attempt * 2)
     return {
         **cfg,
-        "val_loss": float("inf"),
+        "val_mse": float("inf"),
         "status": "failed",
         "error": f"Failed after {max_attempts} attempts"
     }
@@ -81,10 +81,10 @@ def run_model_parallel_gradient_search(X_train, y_train, X_val, y_val, config: T
 
         results = ray.get(futures)
         successes = [r for r in results if r["status"] == "success"]
-        successes.sort(key=lambda x: x['val_loss'])
+        successes.sort(key=lambda x: x['val_mse'])
 
         top_models = successes[:config.models_per_depth]
-        if final_best_model is None or top_models[0]["val_loss"] < final_best_model["val_loss"]:
+        if final_best_model is None or top_models[0]["val_mse"] < final_best_model["val_mse"]:
             final_best_model = top_models[0] 
 
         failures = [r for r in results if r["status"] == "failed"]

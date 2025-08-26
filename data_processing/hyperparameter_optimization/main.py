@@ -28,6 +28,12 @@ logging.getLogger("wandb").setLevel(logging.CRITICAL)
 from pytorch_lightning.utilities import rank_zero
 rank_zero._get_rank = lambda: 1
 
+database_to_feature = {
+    "wifi_fingerprinting_data" : 'both',               
+    "wifi_fingerprinting_data_exponential" : 'ratios',   
+    "wifi_fingerprinting_data_raw" : 'rssi', 
+}
+
 all_collections = [
     "equilatero_grande_garage",
     "equilatero_grande_outdoor",
@@ -53,18 +59,24 @@ all_collections = [
 def group_by_location(collections, locations):
     return [name for name in collections if any(loc in name for loc in locations)]
 
-def load_and_process_data(train_collections, db_name="wifi_fingerprinting_data"):
+def load_and_process_data(train_collections,db_name):
+
+    data_mode = database_to_feature[db_name]
+
+    print(f"🧰 Database in use: {db_name}")
+    print(f"🧰 Data format: {data_mode}") 
+
     print(f"📡 Loading training datasets: {train_collections}")
-    train_datasets = [get_dataset(name, db_name) for name in train_collections]
+    train_datasets = [get_dataset(name, db_name, data_mode) for name in train_collections]
     combined_train = combine_arrays(train_datasets)
     shuffled_train = shuffle_array(combined_train)
-    X_train, y_train = split_combined_data(shuffled_train)
+    X_train, y_train = split_combined_data(shuffled_train, data_mode)
 
     print("📡 Loading validation datasets: all collections")
-    val_datasets = [get_dataset(name, db_name) for name in all_collections]
+    val_datasets = [get_dataset(name, db_name, data_mode) for name in all_collections]
     combined_val = combine_arrays(val_datasets)
     shuffled_val = shuffle_array(combined_val)
-    X_val, y_val = split_combined_data(shuffled_val)
+    X_val, y_val = split_combined_data(shuffled_val, data_mode)
 
     return X_train, y_train, X_val, y_val
 
@@ -90,7 +102,7 @@ if __name__ == '__main__':
 
         for experiment_name, train_collections in experiments.items():
             print(f"🔬 Starting experiment: {experiment_name}")
-            X_train, y_train, X_val, y_val = load_and_process_data(train_collections)
+            X_train, y_train, X_val, y_val = load_and_process_data(train_collections, config.db_name)
 
             all_best_models = []
             print(f"🚀 Running {config.num_gradient_runs} independent gradient searches...")
@@ -110,7 +122,7 @@ if __name__ == '__main__':
                 )
 
                 best_model = top_models[0]
-                print(f"✅ Best model val_loss: {best_model['val_loss']:.4f} - {best_model['name']}")
+                print(f"✅ Best model val_mse: {best_model['val_mse']:.4f} - {best_model['name']}")
                 all_best_models.append(best_model)
 
             result_path = os.path.join(os.getcwd(), f"best_models_{experiment_name}.pkl")
