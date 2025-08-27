@@ -1,32 +1,65 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import os
+from typing import List
+
 
 @dataclass
-class TrainingConfig:
-    # Data settings
-    test_size: float = 0.2
-    random_state: int = 42
+class Config:
+    # --- Mongo ---
+    mongo_uri: str = "mongodb://localhost:28910/"
+    db_name: str = "wifi_fingerprinting_data_extra_features"
 
-    # Training settings
-    epochs: int = 30
-    training_depth: int = 10
-    models_per_depth: int = 12
-    num_cpu = 24
-    group_name: str = "CNN_second_experiment"
-    num_dataloader_workers = 0
 
-    # Model generation
-    initial_variation_factor: float = 0.3
-    variation_decay_rate: float = 0.02
+    # Collections to include (as provided)
+    collections: List[str] = field(default_factory=lambda: [
+    "equilatero_grande_garage",
+    "equilatero_grande_outdoor",
+    "equilatero_medio_garage",
+    "equilatero_medio_outdoor",
+    "isosceles_grande_outdoor",
+    "isosceles_medio_outdoor",
+    "obtusangulo_grande_outdoor",
+    "obtusangulo_pequeno_outdoor",
+    "reto_grande_garage",
+    "reto_grande_outdoor",
+    "reto_medio_garage",
+    "reto_medio_outdoor",
+    "reto_n_quadrado_grande_outdoor",
+    "reto_n_quadrado_pequeno_outdoor",
+    "reto_pequeno_garage",
+    "reto_pequeno_outdoo", # note: if this is a typo, fix it here to match your DB
+    ])
 
-    # Optimization
-    default_batch_size: int = 2048
-    default_learning_rate: float = 0.01
-    default_weight_decay: float = 0.0
 
-    # Global search configuration
-    num_gradient_runs: int = 5
+    # Feature discovery / streaming
+    exclude_keys: List[str] = field(default_factory=lambda: ["_id", "location_x", "location_y", "timestamp"]) # labels excluded
+    sample_per_collection: int = 200
+    batch_size: int = 8192
 
-    # Model Storage
-    model_save_dir = "model_storage_second"
-    experiment_name = "experiment"
-    run_index = 0
+
+    # PCA / selection
+    variance_threshold: float = 0.95 # ignored if n_components > 0
+    n_components: int = 0 # 0 => auto by variance_threshold
+    top_m_features: int = 20
+    seed: int = 1337
+
+
+    # W&B
+    wandb_enabled: bool = True
+    wandb_project: str = "wifi-pca-feature-select"
+    wandb_entity: str | None = None # set if you use a team/entity
+    wandb_run_name: str | None = None
+    wandb_notes: str | None = None
+    wandb_mode: str = os.environ.get("WANDB_MODE", "online") # "online"|"offline"|"disabled"
+
+
+    # Results write-back
+    write_back_results: bool = True
+    results_collection: str = "feature_selection_results"
+
+
+    # Distributed/multi-GPU (no torchrun)
+    use_spawn: bool = True
+    world_size: int = 0 # 0 => auto: number of CUDA devices if available else 1
+    master_addr: str = "127.0.0.1"
+    master_port: int = 0 # 0 => auto-pick a free port
