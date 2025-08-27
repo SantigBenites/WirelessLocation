@@ -1,6 +1,8 @@
 from pymongo import MongoClient
 from datetime import datetime
 from triangle_dict import triangle_dictionary, ap_mapping
+from typing import Dict, Optional, Sequence
+from collections import defaultdict
 
 
 def normalize_picos_coordinates(x, y, origin_x, origin_y):
@@ -18,7 +20,6 @@ def normalize_picos_coordinates(x, y, origin_x, origin_y):
     
     
     return (normalized_x-normalized_origin_x, normalized_y-normalized_origin_y)
-
 
 def calculate_centroid(point1, point2, point3):
     cx = (point1[0] + point2[0] + point3[0]) / 3
@@ -57,8 +58,54 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
     else:
         raw_docs = list(collection.find())
 
+    # Pull docs for this triangle window
+    raw_docs = list(collection.find(match_stage)) if match_stage else list(collection.find())
+
+    # ---------- 1) Pre-compute triangle-wide averages per AP label ----------
+    # We'll compute the per-scan max per BSSID, then per-label max (same logic as your per-doc path),
+    # and aggregate sums/counts to get averages.
+    label_sum = defaultdict(float)
+    label_count = defaultdict(int)
+
+    for doc in raw_docs:
+        if isinstance(doc.get("data"), dict) and "error" in doc["data"]:
+            continue
+
+        # Map BSSID -> max RSSI in this scan
+        bssid_to_max_rssi = {}
+        for entry in doc.get("data", []):
+            bssid = str(entry.get("BSSID", "")).lower()
+            rssi = entry.get("RSSI")
+            if bssid in normalized_ap_keys and isinstance(rssi, (int, float)):
+                prev = bssid_to_max_rssi.get(bssid)
+                if prev is None or rssi > prev:
+                    bssid_to_max_rssi[bssid] = rssi
+
+        # Collapse BSSID values into label values via "max per AP label"
+        label_to_rssi = {}
+        for bssid, label in ap_mapping.items():
+            rssi = bssid_to_max_rssi.get(bssid)
+            if rssi is not None:
+                if label not in label_to_rssi or rssi > label_to_rssi[label]:
+                    label_to_rssi[label] = rssi
+
+        # Aggregate into sums/counts
+        for label, rssi in label_to_rssi.items():
+            label_sum[label] += float(rssi)
+            label_count[label] += 1
+
+    # Final averages per label (only where we have data)
+    label_avg = {
+        label: (label_sum[label] / label_count[label])
+        for label in ap_labels
+        if label_count[label] > 0
+    }
+
+    if debug:
+        print("Triangle averages per AP label:", {k: round(v, 2) for k, v in label_avg.items()})
+
+    # ---------- 2) Build normalized results and fill missing with averages ----------
     normalized_results = []
-    from collections import defaultdict
 
     for doc in raw_docs:
         try:
@@ -79,19 +126,18 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
 
             ap_rssi = {label: None for label in ap_labels}
 
-            if isinstance(doc["data"], dict) and "error" in doc["data"]:
-                # No valid scan data, keep all RSSI values as None
-                pass
-            else:
-                # Process valid data entries
+            # Extract this scan's best RSSI per label (same logic as above)
+            if not (isinstance(doc.get("data"), dict) and "error" in doc["data"]):
                 bssid_to_max_rssi = {}
-                for entry in doc["data"]:
-                    bssid = entry.get("BSSID", "").lower()
+                for entry in doc.get("data", []):
+                    bssid = str(entry.get("BSSID", "")).lower()
                     rssi = entry.get("RSSI")
-                    if bssid in normalized_ap_keys:
-                        if bssid not in bssid_to_max_rssi or rssi > bssid_to_max_rssi[bssid]:
+                    if bssid in normalized_ap_keys and isinstance(rssi, (int, float)):
+                        prev = bssid_to_max_rssi.get(bssid)
+                        if prev is None or rssi > prev:
                             bssid_to_max_rssi[bssid] = rssi
 
+                # Collapse into label max
                 label_to_rssis = defaultdict(list)
                 for bssid, label in ap_mapping.items():
                     rssi = bssid_to_max_rssi.get(bssid)
@@ -102,16 +148,20 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
                     if rssis:
                         ap_rssi[label] = max(rssis)
 
+            for label in ap_labels:
+                if ap_rssi[label] is None and label in label_avg:
+                    # Keep integer-like RSSI; round the average
+                    ap_rssi[label] = int(round(label_avg[label]))
+
+            # 👉 NEW: compute pairwise RSSI ratios for the three friends
+            rssi_cols_fixed = ["freind1_rssi", "freind2_rssi", "freind3_rssi"]
+
             new_doc = {
                 "location_x": norm_x,
                 "location_y": norm_y,
                 "timestamp": timestamp,
-                **ap_rssi
+                **ap_rssi,      # keep your original RSSI values
             }
-
-            if dry_run:
-                new_doc["raw_location_x"] = raw_x
-                new_doc["raw_location_y"] = raw_y
 
             normalized_results.append(new_doc)
 
@@ -124,7 +174,6 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
         print(f"Documentos would be processed into {output_db.name}.{output_collection_name}")
         if normalized_results:
             doc = normalized_results[0]
-            print(f"  Raw location: {doc.get('raw_location_x')},{doc.get('raw_location_y')}")
             print(f"  Normalized location: {doc['location_x']:.4f},{doc['location_y']:.4f}")
             print(f"  timestamp: {datetime.fromtimestamp(doc['timestamp'])}")
             seen = set()
@@ -176,7 +225,7 @@ if __name__ == "__main__":
         input_db = client[input_db_name]
 
         # Output DB is always this
-        output_db = client["wifi_fingerprinting_data"]
+        output_db = client["wifi_fingerprinting_data_exponential"]
 
         # Collection name will match triangle name (e.g., reto_grande_wifi_client_data_global)
         output_collection = triangle_name
@@ -192,5 +241,6 @@ if __name__ == "__main__":
             input_collection_name=input_collection,
             output_collection_name=output_collection,
             ap_mapping=flat_ap_mapping,
-            output_db=output_db
+            output_db=output_db,
+            debug=True
         )
