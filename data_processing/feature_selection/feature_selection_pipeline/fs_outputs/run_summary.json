@@ -1,0 +1,11 @@
+{
+  "n_samples": 323615,
+  "n_features": 33,
+  "targets": [
+    "location_x",
+    "location_y"
+  ],
+  "final_selected_count": 13,
+  "min_fold_fraction": 0.6,
+  "n_splits": 5
+}
