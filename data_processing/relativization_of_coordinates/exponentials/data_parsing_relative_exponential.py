@@ -2,7 +2,7 @@ from pymongo import MongoClient
 from datetime import datetime
 from triangle_dict import triangle_dictionary, ap_mapping
 from typing import Dict, Optional, Sequence
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 
 def _pairwise_ratios(values: Dict[str, Optional[float]], cols: Sequence[str]) -> Dict[str, Optional[float]]:
@@ -43,9 +43,9 @@ def calculate_centroid(point1, point2, point3):
     return (cx, cy)
 
 import sys
-def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_time=None,
-                        dry_run=False, output_collection_name="wifi_data_filtered",
-                        input_collection_name="wifi_data", ap_mapping=None, output_db=None, debug = False):
+def transform_wifi_data(db, origin_x, origin_y, start_time, end_time,
+                        dry_run, output_collection_name,
+                        input_collection_name, ap_mapping, output_db=None, debug = False):
     """
     Transform WiFi scan data into normalized format and write to output DB/collection.
     """
@@ -58,6 +58,9 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
         31: 1, 32: 2, 33: 3, 34: 4, 35: 5,
         36: 6, 37: 7, 38: 8, 39: 9, 30: 10
     }
+
+    stats = Counter(total=0, error_docs=0, no_xy=0, no_ap_hits=0, bad_channel=0, emitted=0)
+
 
     match_stage = {}
     if start_time:
@@ -85,6 +88,7 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
 
     for doc in raw_docs:
         if isinstance(doc.get("data"), dict) and "error" in doc["data"]:
+            stats["error_docs"] += 1
             continue
 
         # Map BSSID -> max RSSI in this scan
@@ -186,6 +190,8 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
         except Exception as e:
             print(f"⚠️ Error processing document: {e}")
             continue
+
+    print(stats)
 
     if dry_run:
         print(f"Dry run: Would process {len(normalized_results)} documents")

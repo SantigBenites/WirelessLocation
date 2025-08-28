@@ -2,7 +2,7 @@ from pymongo import MongoClient
 from datetime import datetime
 from triangle_dict import triangle_dictionary, ap_mapping
 from typing import Dict, Optional, Sequence
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 
 def normalize_picos_coordinates(x, y, origin_x, origin_y):
@@ -43,6 +43,8 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
         36: 6, 37: 7, 38: 8, 39: 9, 30: 10
     }
 
+    stats = Counter(total=0, error_docs=0, no_xy=0, no_ap_hits=0, bad_channel=0, emitted=0)
+
     match_stage = {}
     if start_time:
         match_stage["timestamp"] = {"$gte": start_time.timestamp()}
@@ -69,6 +71,7 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
 
     for doc in raw_docs:
         if isinstance(doc.get("data"), dict) and "error" in doc["data"]:
+            stats["error_docs"] += 1
             continue
 
         # Map BSSID -> max RSSI in this scan
@@ -169,6 +172,8 @@ def transform_wifi_data(db, origin_x=None, origin_y=None, start_time=None, end_t
             print(f"⚠️ Error processing document: {e}")
             continue
 
+    print(stats)
+    
     if dry_run:
         print(f"Dry run: Would process {len(normalized_results)} documents")
         print(f"Documentos would be processed into {output_db.name}.{output_collection_name}")
@@ -237,7 +242,7 @@ if __name__ == "__main__":
             origin_y=origin_y,
             start_time=start_time,
             end_time=end_time,
-            dry_run=False,
+            dry_run=True,
             input_collection_name=input_collection,
             output_collection_name=output_collection,
             ap_mapping=flat_ap_mapping,

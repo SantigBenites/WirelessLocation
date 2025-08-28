@@ -98,16 +98,15 @@ def softmax_shares(rssis: Sequence[Optional[float]]) -> Sequence[Optional[float]
 # -------------------------------
 
 def transform_wifi_data(db,
-                        origin_x=None,
-                        origin_y=None,
-                        ap_positions=None,
-                        start_time=None,
-                        end_time=None,
-                        dry_run=False,
-                        output_collection_name="wifi_data_filtered",
-                        input_collection_name="wifi_data",
-                        ap_mapping=None,
-                        output_db=None,
+                        triangle_name,
+                        origin_x,
+                        origin_y,
+                        ap_positions,
+                        dry_run,
+                        output_collection_name,
+                        input_collection_name,
+                        ap_mapping,
+                        output_db,
                         debug=False):
     if ap_mapping is None:
         raise ValueError("ap_mapping must be provided (BSSID -> label)")
@@ -122,16 +121,12 @@ def transform_wifi_data(db,
     }
 
     match_stage = {}
-    if start_time:
-        match_stage["timestamp"] = {"$gte": start_time.timestamp()}
-    if end_time:
-        match_stage.setdefault("timestamp", {})["$lte"] = end_time.timestamp()
 
     collection = db[input_collection_name]
     normalized_ap_keys = set(ap_mapping.keys())
     ap_labels = sorted(set(ap_mapping.values()))
 
-    raw_docs = list(collection.find(match_stage)) if match_stage else list(collection.find())
+    raw_docs = list(collection.find({"metadata.triangle_shape": triangle_name}))
 
     cx, cy = origin_x, origin_y
     ap_pos_norm_raw_keys = normalize_ap_positions(ap_positions, cx, cy)
@@ -249,10 +244,8 @@ def transform_wifi_data(db,
     normalized_results = []
     for d, label_best in pre_docs:
         try:
-            pico_ip = d["metadata"]["pico_ip"]
-            ip_ending = int(pico_ip.split(".")[3])
-            raw_y = ip_to_y.get(ip_ending)
-            raw_x = d["metadata"]["button_id"]
+            raw_x = doc["metadata"]["x"]
+            raw_y = doc["metadata"]["y"]
             timestamp = d["timestamp"]
             if raw_y is None:
                 continue
@@ -380,12 +373,11 @@ if __name__ == "__main__":
     }
 
     # Iterate through each triangle setup
-    for triangle_name, current_triangle in triangle_dictionary_indoor.items():
+    for key, current_triangle in triangle_dictionary_indoor.items():
         input_db_name       = current_triangle["db"]
         input_collection    = current_triangle["collection"]
-        start_time          = current_triangle["start"]
-        end_time            = current_triangle["end"]
         ap_positions        = current_triangle["ap_positions"]  # raw positions in grid units
+        triangle_name       = current_triangle["triangle_name"]
 
         # Calculate centroid of the triangle for normalization
         origin_x, origin_y = calculate_centroid(
@@ -399,16 +391,15 @@ if __name__ == "__main__":
         output_db = client["wifi_fingerprinting_data_extra_features"]
 
         # Collection name will match triangle name (e.g., reto_grande_wifi_client_data_global)
-        output_collection = triangle_name
+        output_collection = key
 
         # Run transform
         transform_wifi_data(
             db=input_db,
+            triangle_name=triangle_name,
             origin_x=origin_x,
             origin_y=origin_y,
             ap_positions=ap_positions,
-            start_time=start_time,
-            end_time=end_time,
             dry_run=False,
             input_collection_name=input_collection,
             output_collection_name=output_collection,

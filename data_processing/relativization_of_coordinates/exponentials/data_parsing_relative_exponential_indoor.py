@@ -43,9 +43,9 @@ def calculate_centroid(point1, point2, point3):
     return (cx, cy)
 
 import sys
-def transform_wifi_data(db, triangle_name, origin_x=None, origin_y=None, start_time=None, end_time=None,
-                        dry_run=False, output_collection_name="wifi_data_filtered",
-                        input_collection_name="wifi_data", ap_mapping=None, output_db=None, debug = False):
+def transform_wifi_data(db, triangle_name, origin_x, origin_y,
+                        dry_run, output_collection_name,
+                        input_collection_name, ap_mapping, output_db=None, debug = False):
     """
     Transform WiFi scan data into normalized format and write to output DB/collection.
     """
@@ -61,10 +61,6 @@ def transform_wifi_data(db, triangle_name, origin_x=None, origin_y=None, start_t
     }
 
     match_stage = {}
-    if start_time:
-        match_stage["timestamp"] = {"$gte": start_time.timestamp()}
-    if end_time:
-        match_stage.setdefault("timestamp", {})["$lte"] = end_time.timestamp()
 
     collection = db[input_collection_name]
     normalized_ap_keys = set(ap_mapping.keys())
@@ -211,30 +207,48 @@ def transform_wifi_data(db, triangle_name, origin_x=None, origin_y=None, start_t
 
 
 if __name__ == "__main__":
-    client = MongoClient("mongodb://localhost:28910/")
 
+    # Connect to your MongoDB
+    client = MongoClient("mongodb://localhost:28910/")  # Update as needed
+
+    # Flatten the ap_mapping: BSSID → label (e.g., "freind1_rssi")
     flat_ap_mapping = {
         bssid.lower(): f"{ap_name}_rssi"
         for ap_name, bssids in ap_mapping.items()
         for bssid in bssids
     }
 
-    for key, triangle in triangle_dictionary_indoor.items():
-        triangle_name = triangle["triangle_name"]
-        db = client[triangle["db"]]
+    # Iterate through each triangle setup
+    for key, current_triangle in triangle_dictionary_indoor.items():
+        input_db_name       = current_triangle["db"]
+        input_collection    = current_triangle["collection"]
+        ap_positions        = current_triangle["ap_positions"]  # raw positions in grid units
+        triangle_name       = current_triangle["triangle_name"]
+
+        # Calculate centroid of the triangle for normalization
+        origin_x, origin_y = calculate_centroid(
+            *[ap_positions[ap] for ap in ["freind1", "freind2", "freind3"]]
+        )
+
+        # Select input DB
+        input_db = client[input_db_name]
+
+        # Output DB is always this
         output_db = client["wifi_fingerprinting_data_exponential"]
-        input_collection = triangle["collection"]
+
+        # Collection name will match triangle name (e.g., reto_grande_wifi_client_data_global)
         output_collection = key
 
-        ap_positions = triangle["ap_positions"]
-
+        # Run transform
         transform_wifi_data(
-            db=db,
+            db=input_db,
             triangle_name=triangle_name,
-            ap_mapping=flat_ap_mapping,
-            output_db=output_db,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            dry_run=False,
             input_collection_name=input_collection,
             output_collection_name=output_collection,
-            dry_run=False,
-            debug=True
+            ap_mapping=flat_ap_mapping,
+            output_db=output_db,
+            debug=False
         )

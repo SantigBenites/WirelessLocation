@@ -7,13 +7,13 @@ total_expected = 0
 total_processed = 0
 
 print("🔍 Verifying document migration (including indoor and outdoor):\n")
+dst_db_name = "wifi_fingerprinting_data_extra_features"
 
 def verify_entry(triangle_name, triangle_info, is_indoor=False):
     global total_expected, total_processed
 
     src_db_name = triangle_info["db"]
     src_collection_name = triangle_info["collection"]
-    dst_db_name = "wifi_fingerprinting_data"
     dst_collection_name = triangle_name
 
     src_db = client[src_db_name]
@@ -58,6 +58,7 @@ for triangle_name, triangle_info in triangle_dictionary_indoor.items():
 
 # Summary
 print("\n📊 Summary:")
+print(f"Destination db {dst_db_name}")
 print(f"Total expected (source):  {total_expected}")
 print(f"Total processed (target): {total_processed}")
 print(f"{'✅ All matched!' if total_expected == total_processed else '⚠️  Some data is missing or extra'}")

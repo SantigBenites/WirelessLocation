@@ -115,6 +115,8 @@ def transform_wifi_data(db,
         raise ValueError("output_db must be provided")
     if ap_positions is None:
         raise ValueError("ap_positions (raw) must be provided")
+    
+    stats = Counter(total=0, error_docs=0, no_xy=0, no_ap_hits=0, bad_channel=0, emitted=0)
 
     ip_to_y = {
         31: 1, 32: 2, 33: 3, 34: 4, 35: 5,
@@ -149,6 +151,7 @@ def transform_wifi_data(db,
     pre_docs = []
     for doc in raw_docs:
         if isinstance(doc.get("data"), dict) and "error" in doc["data"]:
+            stats["error_docs"] += 1
             continue
 
         bssid_to_best = {}
@@ -346,6 +349,8 @@ def transform_wifi_data(db,
         except Exception as e:
             print(f"⚠️ Error processing document: {e}")
             continue
+    
+    print(stats)
 
     if dry_run:
         print(f"Dry run: Would process {len(normalized_results)} documents")
@@ -411,7 +416,7 @@ if __name__ == "__main__":
             ap_positions=ap_positions,
             start_time=start_time,
             end_time=end_time,
-            dry_run=False,
+            dry_run=True,
             input_collection_name=input_collection,
             output_collection_name=output_collection,
             ap_mapping=flat_ap_mapping,
