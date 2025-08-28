@@ -1,16 +1,16 @@
 {
   "selected_features": [
     "freind1_rssi",
+    "freind3_rssi",
     "delta_freind2_rssi_freind3_rssi",
     "freind1_rssi_power_over_freind2_rssi",
     "freind2_rssi_power_over_freind3_rssi",
-    "freind3_rssi_rssi_1m",
     "freind3_rssi_power_over_freind2_rssi",
     "freind3_rssi_power_over_freind1_rssi",
     "freind2_rssi_power_over_freind1_rssi",
-    "freind2_rssi_over_freind1_rssi",
     "freind1_rssi_power_over_freind3_rssi",
-    "freind3_rssi",
+    "freind2_rssi_over_freind1_rssi",
+    "freind3_rssi_rssi_1m",
     "n_est",
     "freind1_rssi_share"
   ]

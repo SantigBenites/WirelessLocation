@@ -23,9 +23,8 @@ def _init_ray(cfg: Config) -> None:
     ray.init(address=cfg.ray.address or None, local_mode=cfg.ray.local_mode, ignore_reinit_error=True)
 
 
-def main(outdir: str) -> None:
+def main() -> None:
     cfg: Config = CFG
-    cfg.output.outdir = outdir or cfg.output.outdir
 
     ensure_dir(cfg.output.outdir)
 
@@ -86,7 +85,4 @@ def main(outdir: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--outdir", type=str, default=None, help="Output directory for artifacts")
-    args = parser.parse_args()
-    main(args.outdir)
+    main()

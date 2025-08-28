@@ -1,0 +1,8 @@
+{
+  "used_gpu": false,
+  "n_samples": 323615,
+  "n_features_in": 33,
+  "n_components_selected": 12,
+  "variance_threshold": 0.95,
+  "top_k_features": 20
+}

@@ -10,7 +10,7 @@ from pca_pipeline import run_pca
 def main() -> None:
     # ---- Configure here (or edit configs.py defaults) ----
     mongo_cfg = MongoConfig(
-        uri="mongodb://localhost:27017",
+        uri='mongodb://localhost:28910/',
         db_name="wifi_fingerprinting_data_extra_features",
         # comment any you don't have; all will be merged
         collections=[
