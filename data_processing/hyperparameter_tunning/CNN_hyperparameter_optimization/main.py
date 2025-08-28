@@ -27,25 +27,25 @@ rank_zero._get_rank = lambda: 1
 
 
 all_collections = [
-    "equilatero_grande_garage",
+    #"equilatero_grande_garage",
     "equilatero_grande_outdoor",
-    "equilatero_medio_garage",
-    "equilatero_medio_outdoor",
-    "isosceles_grande_indoor",
-    "isosceles_grande_outdoor",
-    "isosceles_medio_outdoor",
-    "obtusangulo_grande_outdoor",
-    "obtusangulo_pequeno_outdoor",
-    "reto_grande_garage",
-    "reto_grande_indoor",
-    "reto_grande_outdoor",
-    "reto_medio_garage",
-    "reto_medio_outdoor",
-    "reto_n_quadrado_grande_indoor",
-    "reto_n_quadrado_grande_outdoor",
-    "reto_n_quadrado_pequeno_outdoor",
-    "reto_pequeno_garage",
-    "reto_pequeno_outdoor",
+    #"equilatero_medio_garage",
+    #"equilatero_medio_outdoor",
+    #"isosceles_grande_indoor",
+    #"isosceles_grande_outdoor",
+    #"isosceles_medio_outdoor",
+    #"obtusangulo_grande_outdoor",
+    #"obtusangulo_pequeno_outdoor",
+    #"reto_grande_garage",
+    #"reto_grande_indoor",
+    #"reto_grande_outdoor",
+    #"reto_medio_garage",
+    #"reto_medio_outdoor",
+    #"reto_n_quadrado_grande_indoor",
+    #"reto_n_quadrado_grande_outdoor",
+    #"reto_n_quadrado_pequeno_outdoor",
+    #"reto_pequeno_garage",
+    #"reto_pequeno_outdoor",
 ]
 
 def group_by_location(collections, locations):
@@ -89,12 +89,12 @@ if __name__ == '__main__':
 
         experiments = {
             "outdoor_only": group_by_location(all_collections, ["outdoor"]),
-            "indoor_only": group_by_location(all_collections, ["indoor"]),
-            "garage_only": group_by_location(all_collections, ["garage"]),
-            "outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
-            "outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
-            "outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
-            "all_data": all_collections,
+            #"indoor_only": group_by_location(all_collections, ["indoor"]),
+            #"garage_only": group_by_location(all_collections, ["garage"]),
+            #"outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
+            #"outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
+            #"outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
+            #"all_data": all_collections,
         }
 
         for experiment_name, train_collections in experiments.items():

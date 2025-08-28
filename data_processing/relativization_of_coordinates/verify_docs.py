@@ -7,7 +7,7 @@ total_expected = 0
 total_processed = 0
 
 print("🔍 Verifying document migration (including indoor and outdoor):\n")
-dst_db_name = "wifi_fingerprinting_data_extra_features"
+dst_db_name = "wifi_fingerprinting_data_exponential"
 
 def verify_entry(triangle_name, triangle_info, is_indoor=False):
     global total_expected, total_processed
