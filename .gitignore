@@ -21,8 +21,8 @@ data_processing/hyperparameter_optimization/wifi-rssi-gradient-search/*
 data_processing/hyperparameter_optimization/wifi-rssi-gradient-search
 data_processing/hyperparameter_optimization/models/*
 data_processing/hyperparameter_optimization/models
-data_processing/hyperparameter_optimization/model_storage/*
-data_processing/hyperparameter_optimization/model_storage
+data_processing/hyperparameter_optimization/model_storage*/*
+data_processing/hyperparameter_optimization/model_storage*
 data_processing/hyperparameter_optimization/__pycache__
 data_processing/hyperparameter_optimization/__pycache__/*
 data_processing/hyperparameter_optimization/best_models
@@ -47,8 +47,8 @@ data_processing/CNN_hyperparameter_optimization/wifi-rssi-gradient-search/*
 data_processing/CNN_hyperparameter_optimization/wifi-rssi-gradient-search
 data_processing/CNN_hyperparameter_optimization/models/*
 data_processing/CNN_hyperparameter_optimization/models
-data_processing/CNN_hyperparameter_optimization/model_storage/*
-data_processing/CNN_hyperparameter_optimization/model_storage
+data_processing/CNN_hyperparameter_optimization/model_storage*/*
+data_processing/CNN_hyperparameter_optimization/model_storage*
 data_processing/CNN_hyperparameter_optimization/__pycache__
 data_processing/CNN_hyperparameter_optimization/__pycache__/*
 data_processing/CNN_hyperparameter_optimization/best_models
@@ -73,8 +73,8 @@ data_processing/LSTM_hyperparameter_optimization/wifi-rssi-gradient-search/*
 data_processing/LSTM_hyperparameter_optimization/wifi-rssi-gradient-search
 data_processing/LSTM_hyperparameter_optimization/models/*
 data_processing/LSTM_hyperparameter_optimization/models
-data_processing/LSTM_hyperparameter_optimization/model_storage/*
-data_processing/LSTM_hyperparameter_optimization/model_storage
+data_processing/LSTM_hyperparameter_optimization/model_storage*/*
+data_processing/LSTM_hyperparameter_optimization/model_storage*
 data_processing/LSTM_hyperparameter_optimization/__pycache__
 data_processing/LSTM_hyperparameter_optimization/__pycache__/*
 data_processing/LSTM_hyperparameter_optimization/best_models
