@@ -9,7 +9,7 @@ class TrainingConfig:
 
     # Training settings
     epochs: int = 30
-    training_depth: int = 10
+    training_depth: int = 5
     models_per_depth: int = 6
     num_cpu = 24
     group_name: str = "CNN__meters"
@@ -25,7 +25,7 @@ class TrainingConfig:
     default_weight_decay: float = 0.0
 
     # Global search configuration
-    num_gradient_runs: int = 5
+    num_gradient_runs: int = 1
 
     # Model Storage
     model_save_dir = "model_storage_meters"

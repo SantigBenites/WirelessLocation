@@ -27,8 +27,8 @@ import numpy as np
 import torch
 
 # ====== CONFIGURE HERE ======
-MODEL_DIR = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_optimization/model_storage_second"                 # folder containing .pt bundles
-DB_NAME   = "wifi_fingerprinting_data"      # MongoDB database name
+MODEL_DIR = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/model_storage_meters"                 # folder containing .pt bundles
+DB_NAME   = "wifi_fingerprinting_data_meters"      # MongoDB database name
 MONGO_URI = "mongodb://localhost:28910/"    # optional (informational)
 DEVICE    = "cpu"                           # e.g., "cpu" or "cuda:0"
 VAL_BATCH_SIZE = 2048
@@ -40,25 +40,25 @@ from model_generation import GeneratedModel
 
 
 all_collections = [
-    "equilatero_grande_garage",
+    #"equilatero_grande_garage",
     "equilatero_grande_outdoor",
-    "equilatero_medio_garage",
-    "equilatero_medio_outdoor",
-    "isosceles_grande_indoor",
-    "isosceles_grande_outdoor",
-    "isosceles_medio_outdoor",
-    "obtusangulo_grande_outdoor",
-    "obtusangulo_pequeno_outdoor",
-    "reto_grande_garage",
-    "reto_grande_indoor",
-    "reto_grande_outdoor",
-    "reto_medio_garage",
-    "reto_medio_outdoor",
-    "reto_n_quadrado_grande_indoor",
-    "reto_n_quadrado_grande_outdoor",
-    "reto_n_quadrado_pequeno_outdoor",
-    "reto_pequeno_garage",
-    "reto_pequeno_outdoor",
+    #"equilatero_medio_garage",
+    #"equilatero_medio_outdoor",
+    #"isosceles_grande_indoor",
+    #"isosceles_grande_outdoor",
+    #"isosceles_medio_outdoor",
+    #"obtusangulo_grande_outdoor",
+    #"obtusangulo_pequeno_outdoor",
+    #"reto_grande_garage",
+    #"reto_grande_indoor",
+    #"reto_grande_outdoor",
+    #"reto_medio_garage",
+    #"reto_medio_outdoor",
+    #"reto_n_quadrado_grande_indoor",
+    #"reto_n_quadrado_grande_outdoor",
+    #"reto_n_quadrado_pequeno_outdoor",
+    #"reto_pequeno_garage",
+    #"reto_pequeno_outdoor",
 ]
 
 
@@ -85,19 +85,20 @@ def build_validation_sets(db_name: str, mongo_uri: str):
     os.environ.setdefault("MONGO_URI", mongo_uri)
 
     groups = {
-        "indoor": group_by_location(all_collections, ["indoor"]),
+        #"indoor": group_by_location(all_collections, ["indoor"]),
         "outdoor": group_by_location(all_collections, ["outdoor"]),
-        "garage": group_by_location(all_collections, ["garage"]),
-        "all_datasets": list(all_collections),
+        #"garage": group_by_location(all_collections, ["garage"]),
+        #"all_datasets": list(all_collections),
     }
 
     result = {}
     for group_name, collections in groups.items():
         print(f"📡 Loading validation group '{group_name}' with {len(collections)} collections...")
         datasets = [get_dataset(name, db_name) for name in collections]
-        combined = combine_arrays(datasets)
-        shuffled = shuffle_array(combined)
-        X, y = split_combined_data(shuffled)
+        #combined = combine_arrays(datasets)
+        #shuffled = shuffle_array(combined)
+        print(datasets)
+        X, y = split_combined_data(datasets[0])
         result[group_name] = (X.astype(np.float32), y.astype(np.float32))
         print(f"   -> {group_name}: X{X.shape}, y{y.shape}")
     return result
@@ -203,13 +204,9 @@ def _evaluate_one_model(pt_path_str):
     warns = []
     pt_path = Path(pt_path_str)
     pt_name = pt_path.name
-
-    try:
-        model, bundle = load_model_bundle(pt_path, map_location=_DEVICE)
-        model.to(_DEVICE)
-    except Exception as e:
-        warns.append(f"❌ Skipping {pt_name}: {e}")
-        return rows, warns
+    
+    model, bundle = load_model_bundle(pt_path, map_location=_DEVICE)
+    model.to(_DEVICE)
 
     try:
         in_dim = int(bundle["input_size"])
