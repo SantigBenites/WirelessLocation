@@ -5,6 +5,8 @@ import os
 
 from config import WANDB_ENABLED, WANDB_PROJECT, WANDB_ENTITY, WANDB_TAGS
 
+os.environ.setdefault("WANDB_START_METHOD", "thread")
+
 @dataclass
 class _NoOpRun:
     name: str = ""

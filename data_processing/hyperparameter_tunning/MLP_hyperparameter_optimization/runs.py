@@ -20,7 +20,8 @@ runs: List[Dict[str, Any]] = [
     {
         "collections": ["reto_grande_garage","reto_grande_indoor","reto_grande_outdoor"],
         "database": "wifi_fingerprinting_data_exponential",
-        "model_name" : "1triangle_all_spaces"
+        "model_name" : "1triangle_all_spaces",
+        "x_y_to_meter_value" : 32
     },
     {
         "collections": [

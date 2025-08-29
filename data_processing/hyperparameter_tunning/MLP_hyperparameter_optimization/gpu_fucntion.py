@@ -1,3 +1,10 @@
+import os
+os.environ.setdefault("WANDB_START_METHOD", "thread")
+# (optional noise reduction)
+os.environ.setdefault("WANDB_SILENT", "true")
+os.environ.setdefault("WANDB_CONSOLE", "off")
+
+
 import ray
 import random
 from typing import Dict, List, Any, Tuple
