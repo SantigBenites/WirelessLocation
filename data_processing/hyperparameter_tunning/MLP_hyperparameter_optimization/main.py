@@ -15,18 +15,18 @@ from config import *
 random.seed(SEED)
 
 def main():
-    records = load_and_process_data(["equilatero_grande_garage","equilatero_grande_outdoor"],"wifi_fingerprinting_data_meters")
+    train_data, validation_data = load_and_process_data(["equilatero_grande_garage","equilatero_grande_outdoor"],"wifi_fingerprinting_data_meters")
 
-    cross_validate_mlp(records)
+    cross_validate_mlp(train_data)
 
-    results = grid_search_mlp(records)
+    results = grid_search_mlp(train_data)
     best_cfg = results[0]["config"] if results else {}
 
     # 4) Train a final model with the best config (or defaults) and run a sample prediction
     cfg = best_cfg
     print(f"Training final model with config: {cfg if cfg else '[defaults]'}")
     model, scaler, val_rmse = fit_mlp(
-        records,
+        train_data,
         hidden=cfg.get("hidden", HIDDEN) if cfg else HIDDEN,
         epochs=cfg.get("epochs", EPOCHS) if cfg else EPOCHS,
         lr=cfg.get("lr", LR) if cfg else LR,

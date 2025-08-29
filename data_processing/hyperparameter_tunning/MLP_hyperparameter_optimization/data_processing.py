@@ -5,6 +5,7 @@ import numpy as np
 from feature_lists import DATASET_TO_FEATURE
 from config import MONGO_URI
 from itertools import chain
+from sklearn.model_selection import train_test_split
 
 def get_feature_list(dataset:str) -> List[str]:
     """
@@ -116,4 +117,6 @@ def load_and_process_data(train_collections:str, db_name:str):
     combined_train = combine_arrays(train_datasets)
     shuffled_train = shuffle_array(combined_train)
 
-    return shuffled_train
+    train_data, validation_data =  train_test_split(shuffled_train, test_size =.10, shuffle  = True) 
+
+    return train_data, validation_data
