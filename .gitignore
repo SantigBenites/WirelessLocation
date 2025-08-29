@@ -80,6 +80,13 @@ data_processing/hyperparameter_tunning/LSTM_hyperparameter_optimization/__pycach
 data_processing/hyperparameter_tunning/LSTM_hyperparameter_optimization/best_models
 data_processing/hyperparameter_tunning/LSTM_hyperparameter_optimization/best_models/*
 
+## MLP OPTIOMIZATION
+
+data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/__pycache__/
+data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/__pycache__/*
+data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/wandb/
+data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/wandb/*
+
 # Validation
 
 validation/model_per_dataset_validation/model_storage/*
