@@ -17,15 +17,16 @@ def rmse(pred: torch.Tensor, target: torch.Tensor) -> float:
 def train_on_splits(
     train_recs: List[Dict],
     val_recs: List[Dict],
+    database :str ,
     wandb_run: Any = None,
     wandb_prefix: str = "",
 ) -> Tuple[nn.Module, StandardScaler, float]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_loader, val_loader, train_ds = build_loaders(train_recs, val_recs, USE_TIMESTAMP, BATCH_SIZE)
+    train_loader, val_loader, train_ds = build_loaders(train_recs, val_recs, database, USE_TIMESTAMP, BATCH_SIZE)
 
     in_dim = train_ds.X.shape[1]
     model = MLPRegressor(in_dim, HIDDEN, DROPOUT).to(device)
-    opt = torch.optim.AdamW(model.parameters(), LR, WEIGHT_DECAY)
+    opt = torch.optim.AdamW(model.parameters(), lr = LR, weight_decay=WEIGHT_DECAY)
     sched = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', patience=PATIENCE, factor=0.5)
     criterion = nn.MSELoss()
 
@@ -71,7 +72,7 @@ def train_on_splits(
                 f"{wandb_prefix}lr": opt.param_groups[0]["lr"],
             }, step=epoch)
 
-        print(f"Epoch {epoch:03d} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f} | val_RMSE={val_rmse:.4f}")
+        #print(f"Epoch {epoch:03d} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f} | val_RMSE={val_rmse:.4f}")
 
         if val_loss < best_val - 1e-6:
             best_val = val_loss
@@ -101,6 +102,7 @@ def split_train_val(records: List[Dict], val_ratio: float = 0.2):
 
 def fit_mlp(
     records: List[Dict],
+    database_name: str,
     wandb_run: Any = None,
     wandb_prefix: str = "",
 ):
@@ -108,7 +110,9 @@ def fit_mlp(
         raise ValueError("Need at least a handful of samples to train. Provide more records.")
     train_recs, val_recs = split_train_val(records, 0.2)
     model, scaler, val_rmse = train_on_splits(
-        train_recs, val_recs,
+        train_recs, 
+        val_recs,
+        database_name,
         wandb_run=wandb_run,
         wandb_prefix=wandb_prefix,
     )

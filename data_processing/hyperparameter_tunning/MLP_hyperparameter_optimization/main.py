@@ -1,46 +1,46 @@
+
 #!/usr/bin/env python3
+"""
+ray_launcher.py
+Run multiple end-to-end training jobs (your `main`) in parallel with Ray, one GPU per job.
+
+Usage (local machine with N GPUs):
+    python ray_launcher.py
+
+On a Ray cluster:
+    ray start --head  # or connect to an existing cluster
+    # then inside this script, set ray.init(address="auto") instead of ray.init()
+"""
+
 from __future__ import annotations
+import os
+import json
 import random
+import time
+from typing import Dict, List, Any, Tuple
 
-from config import (
-    USE_TIMESTAMP, DO_CV, K_FOLDS, SHUFFLE_CV, DO_GRID_SEARCH, GRID, TOP_N_SAVE, CHECKPOINT_DIR,PATIENCE,SEED
-)
-from data_processing import load_and_process_data
-from cv import cross_validate_mlp
-from grid import grid_search_mlp
-from train import fit_mlp
-from inference import predict_xy
-from config import *
+import ray
+from gpu_fucntion import ray_function
+from runs import runs
 
-random.seed(SEED)
+# Optional: make logs shorter from libraries
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 
 def main():
-    train_data, validation_data = load_and_process_data(["equilatero_grande_garage","equilatero_grande_outdoor"],"wifi_fingerprinting_data_meters")
+    # If you're on a Ray cluster, use: ray.init(address="auto")
+    ray.init()
 
-    cross_validate_mlp(train_data)
+    futures = [
+        ray_function.remote(r["model_name"],r["collections"], r["database"], seed_offset=i)
+        for i, r in enumerate(runs)
+    ]
 
-    results = grid_search_mlp(train_data)
-    best_cfg = results[0]["config"] if results else {}
+    results: List[Dict[str, Any]] = ray.get(futures)
 
-    # 4) Train a final model with the best config (or defaults) and run a sample prediction
-    cfg = best_cfg
-    print(f"Training final model with config: {cfg if cfg else '[defaults]'}")
-    model, scaler, val_rmse = fit_mlp(
-        train_data,
-        hidden=cfg.get("hidden", HIDDEN) if cfg else HIDDEN,
-        epochs=cfg.get("epochs", EPOCHS) if cfg else EPOCHS,
-        lr=cfg.get("lr", LR) if cfg else LR,
-        weight_decay=cfg.get("weight_decay", WEIGHT_DECAY) if cfg else WEIGHT_DECAY,
-        dropout=cfg.get("dropout", DROPOUT) if cfg else DROPOUT,
-        patience=PATIENCE,
-        use_timestamp=USE_TIMESTAMP,
-        batch_size=cfg.get("batch_size", BATCH_SIZE) if cfg else BATCH_SIZE,
-    )
-    print(f"Validation RMSE (holdout): {val_rmse:.4f}")
+    # Pretty-print a compact JSON report
+    print(json.dumps(results, indent=2))
 
-    sample = {"freind1_rssi": -68, "freind2_rssi": -85, "freind3_rssi": -82}
-    x, y = predict_xy(model, scaler, sample, use_timestamp=USE_TIMESTAMP)
-    print({"pred_location_x": x, "pred_location_y": y})
 
 if __name__ == "__main__":
     main()
