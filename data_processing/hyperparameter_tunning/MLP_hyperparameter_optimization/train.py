@@ -8,7 +8,7 @@ from config import (
 )
 from dataset import build_loaders
 from model import MLPRegressor
-from utils import StandardScaler
+from utils import StandardScaler, resolve_scale
 
 @torch.no_grad()
 def rmse(pred: torch.Tensor, target: torch.Tensor) -> float:
@@ -61,6 +61,7 @@ def train_on_splits(
         preds = torch.cat(preds, dim=0)
         targs = torch.cat(targs, dim=0)
         val_rmse = rmse(preds, targs)
+        val_rmse_m = val_rmse * float(resolve_scale(database))
         sched.step(val_loss)
 
         if wandb_run is not None:
@@ -69,6 +70,7 @@ def train_on_splits(
                 f"{wandb_prefix}train_loss": train_loss,
                 f"{wandb_prefix}val_loss": val_loss,
                 f"{wandb_prefix}val_rmse": val_rmse,
+                f"{wandb_prefix}val_rmse_m": val_rmse_m,
                 f"{wandb_prefix}lr": opt.param_groups[0]["lr"],
             }, step=epoch)
 

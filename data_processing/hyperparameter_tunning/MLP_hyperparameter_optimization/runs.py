@@ -5,23 +5,26 @@ runs: List[Dict[str, Any]] = [
     {
         "collections": ["reto_grande_garage"],
         "database": "wifi_fingerprinting_data_meters",
-        "model_name" : "1triangle_1space_garage"
+        "model_name" : "1triangle_1space_garage",
+        "scale" : 1
     },
     {
         "collections": ["reto_grande_indoor"],
         "database": "wifi_fingerprinting_data_meters",
-        "model_name" : "1triangle_1space_indoor"
+        "model_name" : "1triangle_1space_indoor",
+        "scale" : 1
     },
     {
         "collections": ["reto_grande_outdoor"],
         "database": "wifi_fingerprinting_data_meters",
-        "model_name" : "1triangle_1space_outdoor"
+        "model_name" : "1triangle_1space_outdoor",
+        "scale" : 1
     },
     {
         "collections": ["reto_grande_garage","reto_grande_indoor","reto_grande_outdoor"],
         "database": "wifi_fingerprinting_data_exponential",
         "model_name" : "1triangle_all_spaces",
-        "x_y_to_meter_value" : 32
+        "scale" : 32
     },
     {
         "collections": [
@@ -38,7 +41,8 @@ runs: List[Dict[str, Any]] = [
             "reto_pequeno_outdoor",
         ],
         "database": "wifi_fingerprinting_data_exponential",
-        "model_name" : "all_triangles_1space_outdoor"
+        "model_name" : "all_triangles_1space_outdoor",
+        "scale" : 32
     },
     {
         "collections": [
@@ -62,7 +66,8 @@ runs: List[Dict[str, Any]] = [
                         "reto_pequeno_garage",
                         "reto_pequeno_outdoor",
                     ],
-        "database": "wifi_fingerprinting_data_meters",
-        "model_name" : "all_triangles_all_spaces"
+        "database": "wifi_fingerprinting_data_exponential",
+        "model_name" : "all_triangles_all_spaces",
+        "scale" : 32
     },
 ]

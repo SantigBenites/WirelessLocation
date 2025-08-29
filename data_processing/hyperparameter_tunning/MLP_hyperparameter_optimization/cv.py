@@ -4,9 +4,10 @@ import numpy as np
 import torch
 
 from config import SEED, K_FOLDS, SHUFFLE_CV, USE_TIMESTAMP, BATCH_SIZE
-from train import train_on_splits
-from dataset import RssiLocationDataset
+from train import train_on_splits, rmse
+from dataset import RssiLocationDataset, _features_for_database 
 from wandb_utils import init_run
+from utils import resolve_scale
 
 
 def _kfold_indices(n: int, k: int, shuffle: bool = True, seed: int = SEED) -> List[List[int]]:
@@ -45,8 +46,11 @@ def cross_validate_mlp(
         raise ValueError("Not enough samples for cross-validation.")
     folds = _kfold_indices(n, K_FOLDS, SHUFFLE_CV, seed=SEED)
 
-    rmse_list: List[float] = []
-    mae_list: List[float] = []
+    rmse_list_m: List[float] = []
+    mae_list_m:  List[float] = []
+
+    scale = float(resolve_scale(database_name))
+    feature_keys = _features_for_database(database_name)
 
     # No per-fold W&B logs — keep train_on_splits silent
     for val_idx in folds:
@@ -54,37 +58,52 @@ def cross_validate_mlp(
         train_recs = [records[j] for j in train_idx]
         val_recs   = [records[j] for j in val_idx]
 
-        model, train_ds, val_rmse = train_on_splits(
+        model, scaler, val_rmse = train_on_splits(
             train_recs,
             val_recs,
             database_name,
             wandb_run=None,            # <— silence fold-level logging
             wandb_prefix=None,
         )
-        rmse_list.append(float(val_rmse))
+        
+        val_ds = RssiLocationDataset(
+            val_recs,
+            feature_keys=feature_keys,
+            use_timestamp=USE_TIMESTAMP,
+            feature_scaler=scaler,
+        )
 
         # Compute fold MAE by evaluating model on the fold's val set
         val_ds = RssiLocationDataset(
-            val_recs, feature_keys=train_ds.feature_keys,
-            use_timestamp=USE_TIMESTAMP, feature_scaler=train_ds.scaler
+            val_recs,
+            feature_keys=feature_keys,
+            use_timestamp=USE_TIMESTAMP,
+            feature_scaler=scaler,
         )
         device = next(model.parameters()).device
         with torch.no_grad():
             preds = model(val_ds.X.to(device)).cpu()
         targs = val_ds.y
-        mae = torch.mean(torch.abs(preds - targs)).item()
-        mae_list.append(float(mae))
 
-    rmse_arr = np.asarray(rmse_list, dtype=np.float64)
-    mean_rmse = float(rmse_arr.mean())
-    std_rmse = float(rmse_arr.std(ddof=1)) if len(rmse_arr) > 1 else 0.0
-    mean_mae = float(np.asarray(mae_list, dtype=np.float64).mean())
+
+
+        preds_m, targs_m = preds * scale, targs * scale
+        rmse_m = rmse(preds_m, targs_m)
+        mae_m  = torch.mean(torch.abs(preds_m - targs_m)).item()
+
+        rmse_list_m.append(float(rmse_m))
+        mae_list_m.append(float(mae_m))
+
+    rmse_arr = np.asarray(rmse_list_m, dtype=np.float64)
+    mean_rmse_m = float(rmse_arr.mean())
+    std_rmse_m  = float(rmse_arr.std(ddof=1)) if len(rmse_arr) > 1 else 0.0
+    mean_mae_m  = float(np.asarray(mae_list_m, dtype=np.float64).mean())
 
     summary = {
-        "fold_rmse": rmse_list,
-        "mean_rmse": mean_rmse,
-        "std_rmse": std_rmse,
-        "mean_mae": mean_mae,
+        "fold_rmse_m": rmse_list_m,
+        "mean_rmse_m": mean_rmse_m,
+        "std_rmse_m": std_rmse_m,
+        "mean_mae_m": mean_mae_m,
     }
 
     if log_to_wandb:
@@ -92,14 +111,14 @@ def cross_validate_mlp(
         try:
             import wandb
             tbl = wandb.Table(columns=["fold", "rmse"])
-            for i, r in enumerate(rmse_list, start=1):
+            for i, r in enumerate(rmse_list_m, start=1):
                 tbl.add_data(i, float(r))
             run.log({
-                "cv/mean_rmse": mean_rmse,
-                "cv/std_rmse": std_rmse,
-                "cv/mean_mae": mean_mae,
-                "cv/fold_count": len(rmse_list),
-                "cv/folds": tbl,
+                "cv/mean_rmse_m": mean_rmse_m,
+                "cv/std_rmse_m": std_rmse_m,
+                "cv/mean_mae_m": mean_mae_m,
+                "cv/fold_count": len(rmse_list_m),
+                "cv/folds_m": tbl,
             })
         finally:
             run.finish()

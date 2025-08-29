@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 import numpy as np
+from functools import lru_cache
 
 def get_in(d: Dict, path: str, default: Any = None) -> Any:
     cur: Any = d
@@ -39,3 +40,27 @@ class StandardScaler:
         s.mean_ = np.asarray(d["mean"], dtype=np.float32)
         s.std_  = np.asarray(d["std"], dtype=np.float32)
         return s
+
+@lru_cache(maxsize=None)
+def resolve_scale(database_name: str) -> float:
+    """
+    Returns the 'scale' (meters per unit) for a given database by reading runs.py.
+    If not found, returns 1.0.
+    Expected runs.py structure:
+        runs = [
+          {"database": "...", "scale": 32, ...},
+          ...
+        ]
+    """
+    try:
+        from runs import runs  # list[dict]
+    except Exception:
+        return 1.0
+
+    try:
+        for r in runs:
+            if r.get("database") == database_name and "scale" in r:
+                return float(r["scale"])
+    except Exception:
+        pass
+    return 1.0
