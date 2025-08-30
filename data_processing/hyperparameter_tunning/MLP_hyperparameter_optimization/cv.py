@@ -2,12 +2,17 @@ from __future__ import annotations
 from typing import Dict, List, Any, Optional
 import numpy as np
 import torch
+import sys
 
 from config import SEED, K_FOLDS, SHUFFLE_CV, USE_TIMESTAMP, BATCH_SIZE
 from train import train_on_splits, rmse
 from dataset import RssiLocationDataset, _features_for_database 
 from wandb_utils import init_run
 from utils import resolve_scale
+
+import logging
+logger = logging.getLogger("ray")
+logger.setLevel(logging.INFO)
 
 
 def _kfold_indices(n: int, k: int, shuffle: bool = True, seed: int = SEED) -> List[List[int]]:
@@ -53,7 +58,9 @@ def cross_validate_mlp(
     feature_keys = _features_for_database(database_name)
 
     # No per-fold W&B logs — keep train_on_splits silent
-    for val_idx in folds:
+    for idx, val_idx in enumerate(folds):
+        logger.info(f"[CrossValidation] database={database_name}, fold {idx}/{len(folds)}")
+        sys.stdout.flush()
         train_idx = [j for j in range(n) if j not in val_idx]
         train_recs = [records[j] for j in train_idx]
         val_recs   = [records[j] for j in val_idx]

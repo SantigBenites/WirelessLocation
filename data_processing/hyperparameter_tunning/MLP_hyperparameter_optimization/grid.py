@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Dict, List, Any
 from itertools import product
+import sys
 
 from config import GRID, TOP_N_SAVE, CHECKPOINT_DIR, USE_TIMESTAMP, PATIENCE, SEED
 from cv import cross_validate_mlp
@@ -26,6 +27,8 @@ def grid_search_mlp(records: List[Dict], database_name: str) -> List[Dict[str, A
 
     results: List[Dict[str, Any]] = []
     for idx, cfg in enumerate(combos, start=1):
+        print(f"[GridSearch] for database {database_name}, config number {idx}/{len(combos)}")
+        sys.stdout.flush()
         cv_summary = cross_validate_mlp(
             records,
             database_name=database_name,

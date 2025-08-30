@@ -86,6 +86,8 @@ data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/__pycache
 data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/__pycache__/*
 data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/wandb/
 data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/wandb/*
+data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/checkpoints/
+data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/checkpoints/*
 
 # Validation
 
