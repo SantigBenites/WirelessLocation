@@ -17,7 +17,7 @@ from utils import resolve_scale
 
 @ray.remote(num_gpus=1)
 def ray_function(model_name: str, collections: List[str], database: str, seed_offset: int = 0) -> Dict[str, Any]:
-    os.environ.setdefault("WANDB_DISABLED", "true")
+    #os.environ.setdefault("WANDB_DISABLED", "true")
     random.seed(SEED + seed_offset)
     np.random.seed(SEED + seed_offset)
     torch.manual_seed(SEED + seed_offset)
