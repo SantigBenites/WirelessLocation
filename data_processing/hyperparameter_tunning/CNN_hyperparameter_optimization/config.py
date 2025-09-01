@@ -5,14 +5,14 @@ class TrainingConfig:
     # Data settings
     test_size: float = 0.2
     random_state: int = 42
-    db_name="wifi_fingerprinting_data_meters"
+    db_name="wifi_fingerprinting_data_extra_features"
 
     # Training settings
     epochs: int = 30
     training_depth: int = 5
     models_per_depth: int = 6
     num_cpu = 24
-    group_name: str = "CNN__meters"
+    group_name: str = "CNN_extra_features"
     num_dataloader_workers = 0
 
     # Model generation
@@ -28,6 +28,6 @@ class TrainingConfig:
     num_gradient_runs: int = 1
 
     # Model Storage
-    model_save_dir = "model_storage_meters"
+    model_save_dir = "model_storage_extra_features"
     experiment_name = "experiment"
     run_index = 0
