@@ -99,16 +99,17 @@ def _pairwise_power_ratios_from_dbm(values: Dict[str, Optional[float]], cols: Se
     Compute physically meaningful power ratios by converting each dBm to linear power (mW)
     and then forming pairwise ratios. Keys are named "<a>_power_over_<b>".
     """
-    linear = {}
+    linear: Dict[str, Optional[float]] = {}
     for k in cols:
         v = values.get(k)
         linear[k] = (10 ** (v / 10.0)) if v is not None else None
     raw = _pairwise_ratios(linear, cols)
-    out = {}
+    out: Dict[str, Optional[float]] = {}
     for k, val in raw.items():
-        out[k].replace("_over_", "_power_over_")
-        out[k.replace("_over_", "_power_over_")] = val
+        new_key = k.replace("_over_", "_power_over_")
+        out[new_key] = val if val is not None else None
     return out
+
 
 
 # -------------------------------
@@ -169,16 +170,15 @@ def softmax_shares(rssis: Sequence[Optional[float]]):
 # -------------------------------
 
 def transform_wifi_data(db,
-                        origin_x=None,
-                        origin_y=None,
-                        ap_positions=None,
-                        start_time=None,
-                        end_time=None,
-                        dry_run=False,
-                        output_collection_name="wifi_data_filtered",
-                        input_collection_name="wifi_data",
-                        ap_mapping=None,
-                        output_db=None,
+                        triangle_name,
+                        origin_x,
+                        origin_y,
+                        ap_positions,
+                        dry_run,
+                        output_collection_name,
+                        input_collection_name,
+                        ap_mapping,
+                        output_db,
                         debug=False):
     if ap_mapping is None:
         raise ValueError("ap_mapping must be provided (BSSID -> label)")
@@ -194,17 +194,11 @@ def transform_wifi_data(db,
         36: 6, 37: 7, 38: 8, 39: 9, 30: 10
     }
 
-    match_stage = {}
-    if start_time:
-        match_stage["timestamp"] = {"$gte": start_time.timestamp()}
-    if end_time:
-        match_stage.setdefault("timestamp", {})["$lte"] = end_time.timestamp()
-
     collection = db[input_collection_name]
     normalized_ap_keys = set(ap_mapping.keys())
     ap_labels = sorted(set(ap_mapping.values()))
 
-    raw_docs = list(collection.find(match_stage)) if match_stage else list(collection.find())
+    raw_docs = list(collection.find({"metadata.triangle_shape": triangle_name}))
 
     cx, cy = origin_x, origin_y
     ap_pos_norm_raw_keys = normalize_ap_positions(ap_positions, cx, cy)
@@ -337,10 +331,8 @@ def transform_wifi_data(db,
     normalized_results = []
     for d, label_best in pre_docs:
         try:
-            pico_ip = d["metadata"]["pico_ip"]
-            ip_ending = int(pico_ip.split(".")[3])
-            raw_y = ip_to_y.get(ip_ending)
-            raw_x = d["metadata"]["button_id"]
+            raw_x = doc["metadata"]["x"]
+            raw_y = doc["metadata"]["y"]
             timestamp = d["timestamp"]
             if raw_y is None:
                 continue
@@ -497,7 +489,7 @@ if __name__ == "__main__":
             origin_x=origin_x,
             origin_y=origin_y,
             ap_positions=ap_positions,
-            dry_run=False,
+            dry_run=True,
             input_collection_name=input_collection,
             output_collection_name=output_collection,
             ap_mapping=flat_ap_mapping,

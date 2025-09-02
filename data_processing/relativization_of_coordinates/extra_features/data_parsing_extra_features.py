@@ -99,15 +99,15 @@ def _pairwise_power_ratios_from_dbm(values: Dict[str, Optional[float]], cols: Se
     Compute physically meaningful power ratios by converting each dBm to linear power (mW)
     and then forming pairwise ratios. Keys are named "<a>_power_over_<b>".
     """
-    linear = {}
+    linear: Dict[str, Optional[float]] = {}
     for k in cols:
         v = values.get(k)
         linear[k] = (10 ** (v / 10.0)) if v is not None else None
     raw = _pairwise_ratios(linear, cols)
-    out = {}
+    out: Dict[str, Optional[float]] = {}
     for k, val in raw.items():
-        out[k].replace("_over_", "_power_over_")
-        out[k.replace("_over_", "_power_over_")] = val
+        new_key = k.replace("_over_", "_power_over_")
+        out[new_key] = val if val is not None else None
     return out
 
 
@@ -432,8 +432,9 @@ def transform_wifi_data(db,
             normalized_results.append(new_doc)
 
         except Exception as e:
-            print(f"⚠️ Error processing document: {e}")
-            continue
+            import traceback
+            print(f"⚠️ Error processing document: {traceback.format_exc()}")
+            break
     
     print(stats)
 
