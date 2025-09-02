@@ -8,11 +8,11 @@ class TrainingConfig:
     db_name="wifi_fingerprinting_data_extra_features"
 
     # Training settings
-    epochs: int = 30
-    training_depth: int = 5
+    epochs: int = 50
+    training_depth: int = 10
     models_per_depth: int = 6
     num_cpu = 24
-    group_name: str = "CNN_extra_features"
+    group_name: str = "CNN_extra_features_no_leaking"
     num_dataloader_workers = 0
 
     # Model generation
@@ -25,9 +25,9 @@ class TrainingConfig:
     default_weight_decay: float = 0.0
 
     # Global search configuration
-    num_gradient_runs: int = 1
+    num_gradient_runs: int = 3
 
     # Model Storage
-    model_save_dir = "model_storage_extra_features"
+    model_save_dir = "model_storage_extra_features_run_no_leaking"
     experiment_name = "experiment"
     run_index = 0
