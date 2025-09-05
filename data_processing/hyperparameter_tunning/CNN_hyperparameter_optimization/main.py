@@ -81,7 +81,7 @@ if __name__ == '__main__':
     try:
         config = TrainingConfig()
 
-        os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5"
 
         ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
         # Suppress Ray internal logs
@@ -91,7 +91,7 @@ if __name__ == '__main__':
             #"outdoor_only": group_by_location(all_collections, ["outdoor"]),
             #"indoor_only": group_by_location(all_collections, ["indoor"]),
             #"garage_only": group_by_location(all_collections, ["garage"]),
-            #"outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
+            "outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
             "outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
             "outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
             #"all_data": all_collections,
