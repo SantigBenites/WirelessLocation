@@ -91,7 +91,7 @@ if __name__ == '__main__':
             #"outdoor_only": group_by_location(all_collections, ["outdoor"]),
             #"indoor_only": group_by_location(all_collections, ["indoor"]),
             #"garage_only": group_by_location(all_collections, ["garage"]),
-            "outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
+            #"outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
             "outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
             "outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
             #"all_data": all_collections,
