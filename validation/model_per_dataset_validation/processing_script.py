@@ -34,8 +34,16 @@ DEVICE    = "cpu"                           # e.g., "cpu" or "cuda:0"
 VAL_BATCH_SIZE = 2048
 # ============================
 
+import sys
+import os
+from pathlib import Path
+# go up two levels: validate_single_model/ -> validation/ -> (join to data_processing/…)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+MODULE_DIR = PROJECT_ROOT / "data_processing" / "hyperparameter_tunning" / "CNN_hyperparameter_optimization"
+sys.path.append(str(MODULE_DIR))
+
 # Project modules
-from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data
+from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data, get_feature_list
 from model_generation import GeneratedModel
 
 
@@ -65,20 +73,32 @@ all_collections = [
 def group_by_location(collections, locations):
     return [name for name in collections if any(loc in name for loc in locations)]
 
-def load_and_process_data(train_collections, db_name="wifi_fingerprinting_data"):
+def load_and_process_data(train_collections, db_name):
+    # Resolve which features to use for this DB (preset name or explicit list)
+    feature_list = get_feature_list(db_name)
+
+    print(f"🧰 Database in use: {db_name}")
+    # Uncomment to see the exact feature order:
+    print("Features:", feature_list)
+
+    # ---- Training data
     print(f"📡 Loading training datasets: {train_collections}")
-    train_datasets = [get_dataset(name, db_name) for name in train_collections]
+    train_datasets = [get_dataset(name, db_name, feature_list) for name in train_collections]
     combined_train = combine_arrays(train_datasets)
     shuffled_train = shuffle_array(combined_train)
-    X_train, y_train = split_combined_data(shuffled_train)
+    X_train, y_train = split_combined_data(shuffled_train, feature_list)
 
+    # ---- Validation data
     print("📡 Loading validation datasets: all collections")
-    val_datasets = [get_dataset(name, db_name) for name in all_collections]
+    val_datasets = [get_dataset(name, db_name, feature_list) for name in all_collections]
     combined_val = combine_arrays(val_datasets)
     shuffled_val = shuffle_array(combined_val)
-    X_val, y_val = split_combined_data(shuffled_val)
+    X_val, y_val = split_combined_data(shuffled_val, feature_list)
 
+    print(f"📊 Final shapes -> X_train: {X_train.shape}, y_train: {y_train.shape}, "
+          f"X_val: {X_val.shape}, y_val: {y_val.shape}")
     return X_train, y_train, X_val, y_val
+
 
 
 def build_validation_sets(db_name: str, mongo_uri: str):
@@ -91,14 +111,16 @@ def build_validation_sets(db_name: str, mongo_uri: str):
         #"all_datasets": list(all_collections),
     }
 
+    feature_list = get_feature_list(db_name)
+
     result = {}
     for group_name, collections in groups.items():
         print(f"📡 Loading validation group '{group_name}' with {len(collections)} collections...")
-        datasets = [get_dataset(name, db_name) for name in collections]
+        datasets = [get_dataset(name, db_name, feature_list) for name in collections]
         #combined = combine_arrays(datasets)
         #shuffled = shuffle_array(combined)
         print(datasets)
-        X, y = split_combined_data(datasets[0])
+        X, y = split_combined_data(datasets[0],feature_list)
         result[group_name] = (X.astype(np.float32), y.astype(np.float32))
         print(f"   -> {group_name}: X{X.shape}, y{y.shape}")
     return result
