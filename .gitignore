@@ -104,6 +104,8 @@ validation/model_per_dataset_validation/full_models
 validation/model_per_dataset_validation/full_models/*
 validation/model_per_dataset_validation/eval_results.csv
 validation/dataset_size_validation/project.csv
+validation/re_train_arch/retrained_models/*
+validation/re_train_arch/retrained_models/
 
 # WANDB and PYCACHE
 

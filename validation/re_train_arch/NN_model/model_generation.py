@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
 from itertools import product
-from search_spaces import grid_search_space
+from NN_model.search_spaces import grid_search_space
 
 
 class GeneratedModel(nn.Module):
@@ -56,7 +56,13 @@ class GeneratedModel(nn.Module):
                 self.layers.append(nn.Dropout(layer_spec['dropout']))
             
             prev_size = layer_size
-
+        
+        # Attention mechanism if enabled
+        if architecture_config.get('attention', False):
+            self.attention = nn.MultiheadAttention(prev_size, num_heads=4)
+            self.attention_norm = nn.LayerNorm(prev_size)
+        else:
+            self.attention = None
         
         # Output layers
         self.output_layer = nn.Linear(prev_size, output_size)
@@ -77,6 +83,10 @@ class GeneratedModel(nn.Module):
                     residual = x
             else:
                 x = layer(x)
+        
+        if self.attention is not None:
+            attn_output, _ = self.attention(x.unsqueeze(0), x.unsqueeze(0), x.unsqueeze(0))
+            x = self.attention_norm(x + attn_output.squeeze(0))
         
         position = self.output_layer(x)
         uncertainty = torch.sigmoid(self.uncertainty_layer(x)) if self.uncertainty_layer else None
@@ -104,6 +114,7 @@ def generate_model_configs(search_space=grid_search_space):
         
         architecture_config = {
             'hidden_layers': hidden_layers,
+            'attention': config['attention'],
             'uncertainty_estimation': config['uncertainty_estimation'],
             'residual_connections': config.get('residual', False),
         }
@@ -127,6 +138,10 @@ def generate_random_model_configs(search_space=grid_search_space, number_of_mode
             sample = {key: random.choice(search_space[key]) for key in keys}
             sample['model_type'] = 'cnn' 
 
+            # Check attention constraints
+            if sample['attention'] and sample['layer_size'] % 4 != 0:
+                continue  # regenerate sample if layer_size is not divisible by 4
+
             hidden_layers = []
             for _ in range(sample['num_layers']):
                 layer_spec = {
@@ -144,6 +159,7 @@ def generate_random_model_configs(search_space=grid_search_space, number_of_mode
                 'config': {
                     'activation': sample['activation'],
                     'hidden_layers': hidden_layers,
+                    'attention': sample['attention'],
                     'uncertainty_estimation': sample['uncertainty_estimation'],
                     'residual_connections': sample.get('residual_connections', False),
                 },
@@ -186,6 +202,9 @@ def generate_similar_model_configs(base_model, search_space=grid_search_space, n
                         except ValueError:
                             new_params[key] = random.choice(options)
 
+            # Enforce attention constraints
+            if new_params['attention'] and new_params['layer_size'] % 4 != 0:
+                continue  # regenerate if not divisible by 4
 
             hidden_layers = []
             for _ in range(new_params['num_layers']):
@@ -202,6 +221,7 @@ def generate_similar_model_configs(base_model, search_space=grid_search_space, n
             architecture_config = {
                 'activation': new_params['activation'],
                 'hidden_layers': hidden_layers,
+                'attention': new_params['attention'],
                 'uncertainty_estimation': new_params['uncertainty_estimation'],
                 'residual_connections': new_params.get('residual_connections', False),
             }

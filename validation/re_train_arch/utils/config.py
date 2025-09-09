@@ -12,7 +12,7 @@ class TrainingConfig:
     training_depth: int = 10
     models_per_depth: int = 12
     num_cpu = 24
-    group_name: str = "MLP_RAW_FINAL_outdoor"
+    group_name: str = "CNN_RAW_FINAL_outdoor"
     num_dataloader_workers = 0
 
     # Model generation
@@ -29,5 +29,5 @@ class TrainingConfig:
 
     # Model Storage
     model_save_dir = "model_storage_RAW_FINAL_outdoor"
-    experiment_name = "MLP_RAW_FINAL_outdoor"
+    experiment_name = "CNN_RAW_FINA_outdoor"
     run_index = 0

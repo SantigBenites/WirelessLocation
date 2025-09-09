@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
 from itertools import product
-from search_spaces import grid_search_space
+from MLP_model.search_spaces import grid_search_space
 
 
 class GeneratedModel(nn.Module):

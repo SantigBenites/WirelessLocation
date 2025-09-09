@@ -5,7 +5,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 
 
 from utils.config import TrainingConfig
-from CNN_model.model_generation import GeneratedModel
+from MLP_model.model_generation import GeneratedModel
 from utils.gpu_fucntion import LightningWrapper  # your LightningModule wrapper
 from utils.data_processing import (
     get_feature_list, get_dataset, combine_arrays, shuffle_array, split_combined_data
@@ -18,7 +18,7 @@ def _load_xy(collections, db_name):
     X, y = split_combined_data(arr, feats)
     return X, y, feats
 
-def cnn_retrain_from_pt(
+def mlp_retrain_from_pt(
     pt_path: str,
     out_model_name:str,
     train_collections: list,
@@ -57,7 +57,6 @@ def cnn_retrain_from_pt(
         )
 
     # ----- Rebuild same architecture -----
-    print(arch_config)
     model = GeneratedModel(
         input_size=in_size_ckpt,
         output_size=ytr.shape[1],  # usually 2 (x,y)

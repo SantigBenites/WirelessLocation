@@ -12,10 +12,10 @@ MODULE_DIR = PROJECT_ROOT / "data_processing" / "hyperparameter_tunning" / "NN_h
 sys.path.append(str(MODULE_DIR))
 
 
-from config import TrainingConfig
-from model_generation import GeneratedModel
-from gpu_fucntion import LightningWrapper  # your LightningModule wrapper
-from data_processing import (
+from utils.config import TrainingConfig
+from NN_model.model_generation import GeneratedModel
+from utils.gpu_fucntion import LightningWrapper  # your LightningModule wrapper
+from utils.data_processing import (
     get_feature_list, get_dataset, combine_arrays, shuffle_array, split_combined_data
 )
 
