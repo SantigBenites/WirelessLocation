@@ -1,6 +1,6 @@
 
 from gradient_search import run_model_parallel_gradient_search
-from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data
+from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data, get_feature_list
 from sklearn.model_selection import train_test_split
 import torch, time, pickle, os
 from config import TrainingConfig
@@ -24,6 +24,7 @@ logging.getLogger("lightning").setLevel(logging.ERROR)
 logging.getLogger("wandb").setLevel(logging.CRITICAL)
 from pytorch_lightning.utilities import rank_zero
 rank_zero._get_rank = lambda: 1
+
 
 all_collections = [
     "equilatero_grande_garage",
@@ -50,19 +51,30 @@ all_collections = [
 def group_by_location(collections, locations):
     return [name for name in collections if any(loc in name for loc in locations)]
 
-def load_and_process_data(train_collections, db_name="wifi_fingerprinting_data"):
+def load_and_process_data(train_collections, db_name):
+    # Resolve which features to use for this DB (preset name or explicit list)
+    feature_list = get_feature_list(db_name)
+
+    print(f"🧰 Database in use: {db_name}")
+    # Uncomment to see the exact feature order:
+    print("Features:", feature_list)
+
+    # ---- Training data
     print(f"📡 Loading training datasets: {train_collections}")
-    train_datasets = [get_dataset(name, db_name) for name in train_collections]
+    train_datasets = [get_dataset(name, db_name, feature_list) for name in train_collections]
     combined_train = combine_arrays(train_datasets)
     shuffled_train = shuffle_array(combined_train)
-    X_train, y_train = split_combined_data(shuffled_train)
+    X_train, y_train = split_combined_data(shuffled_train, feature_list)
 
+    # ---- Validation data
     print("📡 Loading validation datasets: all collections")
-    val_datasets = [get_dataset(name, db_name) for name in all_collections]
+    val_datasets = [get_dataset(name, db_name, feature_list) for name in all_collections]
     combined_val = combine_arrays(val_datasets)
     shuffled_val = shuffle_array(combined_val)
-    X_val, y_val = split_combined_data(shuffled_val)
+    X_val, y_val = split_combined_data(shuffled_val, feature_list)
 
+    print(f"📊 Final shapes -> X_train: {X_train.shape}, y_train: {y_train.shape}, "
+          f"X_val: {X_val.shape}, y_val: {y_val.shape}")
     return X_train, y_train, X_val, y_val
 
 if __name__ == '__main__':
@@ -76,18 +88,18 @@ if __name__ == '__main__':
         logging.getLogger("ray").setLevel(logging.ERROR)
 
         experiments = {
-            "outdoor_only": group_by_location(all_collections, ["outdoor"]),
-            "indoor_only": group_by_location(all_collections, ["indoor"]),
-            "garage_only": group_by_location(all_collections, ["garage"]),
-            "outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
+            #"outdoor_only": group_by_location(all_collections, ["outdoor"]),
+            #"indoor_only": group_by_location(all_collections, ["indoor"]),
+            #"garage_only": group_by_location(all_collections, ["garage"]),
+            #"outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
             "outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
             "outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
-            "all_data": all_collections,
+            #"all_data": all_collections,
         }
 
         for experiment_name, train_collections in experiments.items():
             print(f"🔬 Starting experiment: {experiment_name}")
-            X_train, y_train, X_val, y_val = load_and_process_data(train_collections)
+            X_train, y_train, X_val, y_val = load_and_process_data(train_collections, config.db_name)
 
             all_best_models = []
             print(f"🚀 Running {config.num_gradient_runs} independent gradient searches...")
@@ -107,7 +119,7 @@ if __name__ == '__main__':
                 )
 
                 best_model = top_models[0]
-                print(f"✅ Best model val_loss: {best_model['val_loss']:.4f} - {best_model['name']}")
+                print(f"✅ Best model val_mse: {best_model['val_mse']:.4f} - {best_model['name']}")
                 all_best_models.append(best_model)
 
             result_path = os.path.join(os.getcwd(), f"best_models_{experiment_name}.pkl")

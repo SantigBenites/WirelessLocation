@@ -5,15 +5,15 @@ class TrainingConfig:
     # Data settings
     test_size: float = 0.2
     random_state: int = 42
-    db_name="wifi_fingerprinting_data_exponential"
+    db_name="wifi_fingerprinting_data_raw"
 
     # Training settings
-    epochs: int = 30
+    epochs: int = 50
     training_depth: int = 10
     models_per_depth: int = 12
     num_cpu = 24
-    group_name: str = "NN_second_experiment"
-
+    group_name: str = "NN_RAW_FINAL_garage"
+    num_dataloader_workers = 0
 
     # Model generation
     initial_variation_factor: float = 0.3
@@ -25,9 +25,9 @@ class TrainingConfig:
     default_weight_decay: float = 0.0
 
     # Global search configuration
-    num_gradient_runs: int = 10
+    num_gradient_runs: int = 5
 
     # Model Storage
-    model_save_dir = "model_storage_second"
-    experiment_name = "experiment"
+    model_save_dir = "model_storage_RAW_FINAL_garage"
+    experiment_name = "NN_RAW_FINAL_garage"
     run_index = 0

@@ -1,42 +1,33 @@
-from __future__ import annotations
-from typing import Any, Dict, List
+from dataclasses import dataclass
 
-# ------------------------------ CONFIG ------------------------------ #
-USE_TIMESTAMP: bool = False  # set True to include a timestamp feature if available
+@dataclass
+class TrainingConfig:
+    # Data settings
+    test_size: float = 0.2
+    random_state: int = 42
+    db_name="wifi_fingerprinting_data_raw"
 
-# Cross-validation controls
-DO_CV: bool = True
-K_FOLDS: int = 5
-SHUFFLE_CV: bool = True
+    # Training settings
+    epochs: int = 50
+    training_depth: int = 10
+    models_per_depth: int = 12
+    num_cpu = 24
+    group_name: str = "NN_RAW_FINAL_garage"
+    num_dataloader_workers = 0
 
-# Grid search controls
-DO_GRID_SEARCH: bool = True
-TOP_N_SAVE: int = 3
-CHECKPOINT_DIR: str = "checkpoints"
-GRID: Dict[str, List[Any]] = {
-    "hidden": [[64, 64], [128, 64], [128, 128, 64]],
-    "lr": [3e-4, 1e-3],
-    "dropout": [0.0, 0.1],
-    "weight_decay": [0.0, 1e-4, 5e-4],
-    "epochs": [150],
-    "batch_size": [128],
-}
+    # Model generation
+    initial_variation_factor: float = 0.3
+    variation_decay_rate: float = 0.02
 
-#  Mongo connection
-MONGO_URI: str = "mongodb://localhost:28910/"
+    # Optimization
+    default_batch_size: int = 2048
+    default_learning_rate: float = 0.01
+    default_weight_decay: float = 0.0
 
-# Default training hyperparams
-SEED: int = 42
-EPOCHS: int = 200
-BATCH_SIZE: int = 128
-LR: float = 1e-3
-WEIGHT_DECAY: float = 1e-4
-DROPOUT: float = 0.1
-PATIENCE: int = 20
-HIDDEN: list[int] = [128, 128, 64]
+    # Global search configuration
+    num_gradient_runs: int = 5
 
-# ------------------------------ W&B ------------------------------ #
-WANDB_ENABLED: bool = True
-WANDB_PROJECT: str = "rssi-mlp"
-WANDB_ENTITY: str | None = None
-WANDB_TAGS: list[str] = ["mlp", "grid", "cv"]
+    # Model Storage
+    model_save_dir = "model_storage_RAW_FINAL_garage"
+    experiment_name = "NN_RAW_FINAL_garage"
+    run_index = 0

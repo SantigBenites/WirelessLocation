@@ -5,14 +5,14 @@ class TrainingConfig:
     # Data settings
     test_size: float = 0.2
     random_state: int = 42
-    db_name="wifi_fingerprinting_data"
+    db_name="wifi_fingerprinting_data_raw"
 
     # Training settings
     epochs: int = 50
-    training_depth: int = 6
+    training_depth: int = 10
     models_per_depth: int = 12
     num_cpu = 24
-    group_name: str = "CNN_only_relative_xy"
+    group_name: str = "CNN_RAW_FINAL_outdoor"
     num_dataloader_workers = 0
 
     # Model generation
@@ -25,9 +25,9 @@ class TrainingConfig:
     default_weight_decay: float = 0.0
 
     # Global search configuration
-    num_gradient_runs: int = 4
+    num_gradient_runs: int = 5
 
     # Model Storage
-    model_save_dir = "model_storage_only_relative_xy"
-    experiment_name = "experiment"
+    model_save_dir = "model_storage_RAW_FINAL_outdoor"
+    experiment_name = "CNN_RAW_FINA_outdoor"
     run_index = 0

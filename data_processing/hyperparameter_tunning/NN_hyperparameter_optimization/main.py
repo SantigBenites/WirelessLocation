@@ -1,6 +1,6 @@
 
 from gradient_search import run_model_parallel_gradient_search
-from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data
+from data_processing import get_dataset, combine_arrays, shuffle_array, split_combined_data, get_feature_list
 from sklearn.model_selection import train_test_split
 import torch, time, pickle, os
 from config import TrainingConfig
@@ -8,9 +8,6 @@ import logging, warnings
 import multiprocessing
 import logging
 import ray
-
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ['TORCH_USE_CUDA_DSA'] = "1"
 
 # Configure environment
 torch.set_float32_matmul_precision('high')
@@ -28,56 +25,56 @@ logging.getLogger("wandb").setLevel(logging.CRITICAL)
 from pytorch_lightning.utilities import rank_zero
 rank_zero._get_rank = lambda: 1
 
-database_to_feature = {
-    "wifi_fingerprinting_data" : 'both',               
-    "wifi_fingerprinting_data_exponential" : 'ratios',   
-    "wifi_fingerprinting_data_raw" : 'rssi', 
-}
 
 all_collections = [
-    "equilatero_grande_garage",
-    "equilatero_grande_outdoor",
-    "equilatero_medio_garage",
-    "equilatero_medio_outdoor",
-    "isosceles_grande_indoor",
-    "isosceles_grande_outdoor",
-    "isosceles_medio_outdoor",
-    "obtusangulo_grande_outdoor",
-    "obtusangulo_pequeno_outdoor",
+    #"equilatero_grande_garage",
+    #"equilatero_grande_outdoor",
+    #"equilatero_medio_garage",
+    #"equilatero_medio_outdoor",
+    #"isosceles_grande_indoor",
+    #"isosceles_grande_outdoor",
+    #"isosceles_medio_outdoor",
+    #"obtusangulo_grande_outdoor",
+    #"obtusangulo_pequeno_outdoor",
     "reto_grande_garage",
-    "reto_grande_indoor",
-    "reto_grande_outdoor",
-    "reto_medio_garage",
-    "reto_medio_outdoor",
-    "reto_n_quadrado_grande_indoor",
-    "reto_n_quadrado_grande_outdoor",
-    "reto_n_quadrado_pequeno_outdoor",
-    "reto_pequeno_garage",
-    "reto_pequeno_outdoor",
+    #"reto_grande_indoor",
+    #"reto_grande_outdoor",
+    #"reto_medio_garage",
+    #"reto_medio_outdoor",
+    #"reto_n_quadrado_grande_indoor",
+    #"reto_n_quadrado_grande_outdoor",
+    #"reto_n_quadrado_pequeno_outdoor",
+    #"reto_pequeno_garage",
+    #"reto_pequeno_outdoor",
 ]
 
 def group_by_location(collections, locations):
     return [name for name in collections if any(loc in name for loc in locations)]
 
-def load_and_process_data(train_collections,db_name):
-
-    data_mode = database_to_feature[db_name]
+def load_and_process_data(train_collections, db_name):
+    # Resolve which features to use for this DB (preset name or explicit list)
+    feature_list = get_feature_list(db_name)
 
     print(f"🧰 Database in use: {db_name}")
-    print(f"🧰 Data format: {data_mode}") 
+    # Uncomment to see the exact feature order:
+    print("Features:", feature_list)
 
+    # ---- Training data
     print(f"📡 Loading training datasets: {train_collections}")
-    train_datasets = [get_dataset(name, db_name, data_mode) for name in train_collections]
+    train_datasets = [get_dataset(name, db_name, feature_list) for name in train_collections]
     combined_train = combine_arrays(train_datasets)
     shuffled_train = shuffle_array(combined_train)
-    X_train, y_train = split_combined_data(shuffled_train, data_mode)
+    X_train, y_train = split_combined_data(shuffled_train, feature_list)
 
+    # ---- Validation data
     print("📡 Loading validation datasets: all collections")
-    val_datasets = [get_dataset(name, db_name, data_mode) for name in all_collections]
+    val_datasets = [get_dataset(name, db_name, feature_list) for name in all_collections]
     combined_val = combine_arrays(val_datasets)
     shuffled_val = shuffle_array(combined_val)
-    X_val, y_val = split_combined_data(shuffled_val, data_mode)
+    X_val, y_val = split_combined_data(shuffled_val, feature_list)
 
+    print(f"📊 Final shapes -> X_train: {X_train.shape}, y_train: {y_train.shape}, "
+          f"X_val: {X_val.shape}, y_val: {y_val.shape}")
     return X_train, y_train, X_val, y_val
 
 if __name__ == '__main__':
@@ -91,12 +88,12 @@ if __name__ == '__main__':
         logging.getLogger("ray").setLevel(logging.ERROR)
 
         experiments = {
-            "outdoor_only": group_by_location(all_collections, ["outdoor"]),
-            "indoor_only": group_by_location(all_collections, ["indoor"]),
-            "garage_only": group_by_location(all_collections, ["garage"]),
-            "outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
-            "outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
-            "outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
+            #"outdoor_only": group_by_location(all_collections, ["outdoor"]),
+            #"indoor_only": group_by_location(all_collections, ["indoor"]),
+            #"garage_only": group_by_location(all_collections, ["garage"]),
+            #"outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
+            #"outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
+            #"outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
             "all_data": all_collections,
         }
 

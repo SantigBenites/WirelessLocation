@@ -1,137 +1,141 @@
-from pymongo import MongoClient
-import numpy as np
-
 # data_processing.py
-
+from typing import List, Sequence, Union
 from pymongo import MongoClient
 import numpy as np
+from feature_lists import DATASET_TO_FEATURE
 
-def get_dataset(collection_name, db_name, feature_mode):
+def get_feature_list(dataset:str) -> List[str]:
     """
-    Load dataset in the new format and choose features:
-      - feature_mode="rssi"   -> freind1/2/3_rssi (3 features)
-      - feature_mode="ratios" -> 6 ratio features
-      - feature_mode="both"   -> 3 RSSI + 6 ratios (9 features)
-    Labels remain location_x, location_y.
+    Accept either a preset name (str) or an explicit ordered list of feature keys.
+    Returns a concrete list of feature names in the order they should be used.
     """
-    feature_mode = feature_mode.lower()
-    assert feature_mode in {"rssi", "ratios", "both"}, "feature_mode must be 'rssi', 'ratios', or 'both'"
+    if dataset in DATASET_TO_FEATURE:
+        return DATASET_TO_FEATURE[dataset]
+    raise ValueError(
+        f"Unknown feature selection '{dataset}'. "
+        f"Use one of {list(DATASET_TO_FEATURE.keys())} or pass a list of fields."
+    )
 
-    client = MongoClient('mongodb://localhost:28910/',
-                         connectTimeoutMS=30000,
-                         socketTimeoutMS=30000,
-                         maxPoolSize=20)
 
+def _default_value_for(feature_name: str) -> float:
+    """
+    Choose a safe numeric default for missing values.
+    - RSSI-like quantities default to -100 dBm-ish.
+    - Shares/ratios/power ratios and scalars default to 0.0.
+    """
+    name = feature_name.lower()
+    if "_rssi" in name or "_rssi_1m" in name or "residual" in name:
+        return -100.0
+    return 0.0
+
+
+from typing import List, Sequence, Union
+from pymongo import MongoClient
+import numpy as np
+from feature_lists import DATASET_TO_FEATURE
+
+def get_feature_list(dataset:str) -> List[str]:
+    """
+    Accept either a preset name (str) or an explicit ordered list of feature keys.
+    Returns a concrete list of feature names in the order they should be used.
+    """
+    if dataset in DATASET_TO_FEATURE:
+        return DATASET_TO_FEATURE[dataset]
+    raise ValueError(
+        f"Unknown feature selection '{dataset}'. "
+        f"Use one of {list(DATASET_TO_FEATURE.keys())} or pass a list of fields."
+    )
+
+
+def _default_value_for(feature_name: str) -> float:
+    """
+    Choose a safe numeric default for missing values.
+    - RSSI-like quantities default to -100 dBm-ish.
+    - Shares/ratios/power ratios and scalars default to 0.0.
+    """
+    name = feature_name.lower()
+    if "_rssi" in name or "_rssi_1m" in name or "residual" in name:
+        return -100.0
+    return 0.0
+
+
+def get_dataset(
+    collection_name: str,
+    db_name: str,
+    features: Union[str, Sequence[str]],
+):
+    """
+    Load data from MongoDB and return a NumPy array where each row is:
+        [ <features...>, location_x, location_y ]
+
+    feature_selection: preset name or explicit list of fields (order = model input order)
+    """
+
+    client = MongoClient(
+        "mongodb://localhost:28910/",
+        connectTimeoutMS=30000,
+        socketTimeoutMS=30000,
+        maxPoolSize=20,
+    )
     db = client[db_name]
     collection = db[collection_name]
 
-    # Base fields (labels)
+    # Build projection: computed fields via $ifNull to guarantee numeric values.
     projection = {
-        'location_x': 1,
-        'location_y': 1,
+        "location_x": 1,
+        "location_y": 1,
     }
+    for f in features:
+        projection[f] = {"$ifNull": [f"${f}", _default_value_for(f)]}
 
-    # RSSI features
-    if feature_mode in {"rssi", "both"}:
-        projection.update({
-            'freind1_rssi': {'$ifNull': ['$freind1_rssi', -100]},
-            'freind2_rssi': {'$ifNull': ['$freind2_rssi', -100]},
-            'freind3_rssi': {'$ifNull': ['$freind3_rssi', -100]},
-        })
-
-    # Ratio features
-    if feature_mode in {"ratios", "both"}:
-        projection.update({
-            'freind1_rssi_over_freind2_rssi': {'$ifNull': ['$freind1_rssi_over_freind2_rssi', 0]},
-            'freind1_rssi_over_freind3_rssi': {'$ifNull': ['$freind1_rssi_over_freind3_rssi', 0]},
-            'freind2_rssi_over_freind1_rssi': {'$ifNull': ['$freind2_rssi_over_freind1_rssi', 0]},
-            'freind2_rssi_over_freind3_rssi': {'$ifNull': ['$freind2_rssi_over_freind3_rssi', 0]},
-            'freind3_rssi_over_freind1_rssi': {'$ifNull': ['$freind3_rssi_over_freind1_rssi', 0]},
-            'freind3_rssi_over_freind2_rssi': {'$ifNull': ['$freind3_rssi_over_freind2_rssi', 0]},
-        })
-
-    # Match: require labels and whichever features we selected to be numeric
-    match_stage = {
-        'location_x': {'$type': 'number'},
-        'location_y': {'$type': 'number'},
-    }
-    if feature_mode in {"rssi", "both"}:
-        match_stage.update({
-            'freind1_rssi': {'$type': 'number'},
-            'freind2_rssi': {'$type': 'number'},
-            'freind3_rssi': {'$type': 'number'},
-        })
-    if feature_mode in {"ratios", "both"}:
-        # ratios can be 0 if missing (filled by $ifNull), still numeric
-        match_stage.update({
-            'freind1_rssi_over_freind2_rssi': {'$type': 'number'},
-            'freind1_rssi_over_freind3_rssi': {'$type': 'number'},
-            'freind2_rssi_over_freind1_rssi': {'$type': 'number'},
-            'freind2_rssi_over_freind3_rssi': {'$type': 'number'},
-            'freind3_rssi_over_freind1_rssi': {'$type': 'number'},
-            'freind3_rssi_over_freind2_rssi': {'$type': 'number'},
-        })
-
+    # Keep only rows with numeric labels; features are numeric due to $ifNull above.
     pipeline = [
-        {'$project': projection},
-        {'$match': match_stage},
+        {"$project": projection},
+        {
+            "$match": {
+                "location_x": {"$type": "number"},
+                "location_y": {"$type": "number"},
+            }
+        },
     ]
 
     cursor = collection.aggregate(pipeline, allowDiskUse=True, batchSize=50000)
-
-    data = []
+    rows = []
     for doc in cursor:
+
         try:
-            row = []
-            if feature_mode in {"rssi", "both"}:
-                row.extend([
-                    float(doc['freind1_rssi']),
-                    float(doc['freind2_rssi']),
-                    float(doc['freind3_rssi']),
-                ])
-            if feature_mode in {"ratios", "both"}:
-                row.extend([
-                    float(doc['freind1_rssi_over_freind2_rssi']),
-                    float(doc['freind1_rssi_over_freind3_rssi']),
-                    float(doc['freind2_rssi_over_freind1_rssi']),
-                    float(doc['freind2_rssi_over_freind3_rssi']),
-                    float(doc['freind3_rssi_over_freind1_rssi']),
-                    float(doc['freind3_rssi_over_freind2_rssi']),
-                ])
-            row.extend([float(doc['location_x']), float(doc['location_y'])])
-            data.append(tuple(row))
+            x = [float(doc[f]) for f in features]
+            y = [float(doc["location_x"]), float(doc["location_y"])]
+            rows.append(tuple(x + y))
         except Exception:
-            # skip malformed
+            # Skip malformed rows
             continue
 
-    if not data:
-        raise ValueError(f"No valid data found in collection {collection_name}")
+    if not rows:
+        raise ValueError(f"No valid data found in collection '{collection_name}' of DB '{db_name}'.")
 
-    return np.array(data, dtype=np.float32)
+    return np.array(rows, dtype=np.float32)
 
 
-def split_combined_data(combined_array, feature_mode):
-    feature_mode = feature_mode.lower()
-    assert feature_mode in {"rssi", "ratios", "both"}
+def split_combined_data(
+    combined_array: np.ndarray,
+    features: Union[str, Sequence[str]],
+):
+    """
+    Split stacked array into (X, y) based on the selected feature list size.
+    """
+    n_features = len(features)
+    X = combined_array[:, :n_features]
+    y = combined_array[:, n_features:]  # [location_x, location_y]
+    return X, y
 
-    base_rssi = 3
-    ratio_feats = 6
-    if feature_mode == "rssi":
-        num_features = base_rssi
-    elif feature_mode == "ratios":
-        num_features = ratio_feats
-    else:  # both
-        num_features = base_rssi + ratio_feats
 
-    features = combined_array[:, :num_features]
-    labels = combined_array[:, num_features:]
-    return features, labels
-
-def combine_arrays(arrays):
+def combine_arrays(arrays: List[np.ndarray]) -> np.ndarray:
     return np.vstack(arrays)
 
-def shuffle_array(arr, random_state=None):
-    np.random.seed(random_state)
-    shuffled_arr = arr.copy()
-    np.random.shuffle(shuffled_arr)
-    return shuffled_arr
+
+def shuffle_array(arr: np.ndarray, random_state: int = None) -> np.ndarray:
+    rng = np.random.default_rng(random_state)
+    idx = np.arange(arr.shape[0])
+    rng.shuffle(idx)
+    return arr[idx]
