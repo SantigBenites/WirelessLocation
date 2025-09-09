@@ -93,3 +93,13 @@ DATASET_TO_FEATURE = {
         "freind3_rssi",
     ]
 }
+
+def union_feature_lists(*specs):
+    out, seen = [], set()
+    from collections.abc import Sequence
+    for spec in specs:
+        flist = DATASET_TO_FEATURE[spec] if isinstance(spec, str) else list(spec)
+        for f in flist:
+            if f not in seen:
+                out.append(f); seen.add(f)
+    return out

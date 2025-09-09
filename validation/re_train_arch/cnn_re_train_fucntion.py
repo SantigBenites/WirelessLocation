@@ -50,28 +50,23 @@ def cnn_retrain_from_pt(
     Xva, yva, _ = _load_xy(val_collections, cfg.db_name)
 
     if Xtr.shape[1] != in_size_ckpt:
-        raise RuntimeError(
-            f"Feature count mismatch: checkpoint expects {in_size_ckpt} features, "
-            f"but preset '{cfg.db_name}' produced {Xtr.shape[1]}. "
-            f"Pick the same preset you trained with or adjust your feature list."
-        )
+        print(f"[CNN] Warning: input width changed {in_size_ckpt} -> {Xtr.shape[1]} (OK for Conv1d+GAP).")
+
 
     # ----- Rebuild same architecture -----
     print(arch_config)
     model = GeneratedModel(
-        input_size=in_size_ckpt,
+        input_size=Xtr.shape[1],
         output_size=ytr.shape[1],  # usually 2 (x,y)
         architecture_config=arch_config
     )
 
-    # Load weights (or skip to re-init)
     if load_weights:
-        try:
-            model.load_state_dict(state, strict=True)
-        except RuntimeError:
-            # if label dims changed, load backbone only
-            filtered = {k: v for k, v in state.items() if not k.startswith("head.")}
-            model.load_state_dict(filtered, strict=False)
+        # CNN weights are length-agnostic; load everything that matches.
+        missing, unexpected = model.load_state_dict(state, strict=False)
+        if missing or unexpected:
+            print(f"[CNN] Partial load. missing={missing[:5]} unexpected={unexpected[:5]}")
+
 
     # ----- Lightning training -----
     lr = lr or cfg.default_learning_rate
@@ -127,8 +122,9 @@ def cnn_retrain_from_pt(
     torch.save({
         "state_dict": lit.model.state_dict(),
         "arch_config": arch_config,
-        "input_size": in_size_ckpt,
+        "input_size": Xtr.shape[1],
         "output_size": ytr.shape[1],
+        "feature_names": feats,
     }, out_path)
     print(f"Saved to {out_path}")
     return out_path

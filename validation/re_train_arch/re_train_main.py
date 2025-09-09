@@ -29,7 +29,7 @@ re_trains = {
 
 }
 
-data_sets = ["wifi_fingerprinting_data", "wifi_fingerprinting_data_exponential"]
+data_sets = ["wifi_fingerprinting_data_raw","wifi_fingerprinting_data_exponential","wifi_fingerprinting_data","wifi_fingerprinting_data_extra_features_no_leak"]
 BATCHSIZE = 2048
 MAX_EPOCHS = 50
 LEARNING_RATE = 0.01
@@ -42,11 +42,12 @@ for current_type in re_trains.keys():
     for current_area in models_area_dict.keys():
 
         model_path = models_area_dict[current_area]
-        model_file_name = f"{current_type}_{current_area}_"
         collection = f"reto_grande_{current_area}"
 
         for current_dataset in data_sets:
             
+            model_file_name = f"{current_type}_{current_area}_{current_dataset}"
+
             if current_type == "CNN":
                 cnn_retrain_from_pt(model_path,model_file_name,[collection],[collection],current_dataset,False,MAX_EPOCHS,BATCHSIZE,LEARNING_RATE,WEIGHT_DECAY)
             if current_type == "NN":

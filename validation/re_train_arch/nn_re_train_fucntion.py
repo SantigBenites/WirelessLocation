@@ -18,6 +18,7 @@ from utils.gpu_fucntion import LightningWrapper  # your LightningModule wrapper
 from utils.data_processing import (
     get_feature_list, get_dataset, combine_arrays, shuffle_array, split_combined_data
 )
+from utils.feature_union import *
 
 def _load_xy(collections, db_name):
     feats = get_feature_list(db_name)  # same preset used before
@@ -25,6 +26,17 @@ def _load_xy(collections, db_name):
     arr = shuffle_array(combine_arrays(arrays))
     X, y = split_combined_data(arr, feats)
     return X, y, feats
+
+def _safe_partial_load(model, state):
+    model_state = model.state_dict()
+    compatible = {k: v for k, v in state.items()
+                  if k in model_state and v.shape == model_state[k].shape}
+    missing = sorted(set(model_state.keys()) - set(compatible.keys()))
+    unexpected = sorted(set(state.keys()) - set(compatible.keys()))
+    model.load_state_dict(compatible, strict=False)
+    print(f"[Partial load] loaded={len(compatible)} "
+          f"missing={len(missing)} unexpected={len(unexpected)}")
+
 
 def nn_retrain_from_pt(
     pt_path: str,
@@ -58,27 +70,18 @@ def nn_retrain_from_pt(
     Xva, yva, _ = _load_xy(val_collections, cfg.db_name)
 
     if Xtr.shape[1] != in_size_ckpt:
-        raise RuntimeError(
-            f"Feature count mismatch: checkpoint expects {in_size_ckpt} features, "
-            f"but preset '{cfg.db_name}' produced {Xtr.shape[1]}. "
-            f"Pick the same preset you trained with or adjust your feature list."
-        )
+        print(f"[{__name__}] Input width changed {in_size_ckpt} -> {Xtr.shape[1]} "
+              f"(will rebuild first layer).")
 
     # ----- Rebuild same architecture -----
     model = GeneratedModel(
-        input_size=in_size_ckpt,
+        input_size=Xtr.shape[1],
         output_size=ytr.shape[1],  # usually 2 (x,y)
         architecture_config=arch_config
     )
 
-    # Load weights (or skip to re-init)
     if load_weights:
-        try:
-            model.load_state_dict(state, strict=True)
-        except RuntimeError:
-            # if label dims changed, load backbone only
-            filtered = {k: v for k, v in state.items() if not k.startswith("head.")}
-            model.load_state_dict(filtered, strict=False)
+        _safe_partial_load(model, state)
 
     # ----- Lightning training -----
     lr = lr or cfg.default_learning_rate
@@ -134,8 +137,9 @@ def nn_retrain_from_pt(
     torch.save({
         "state_dict": lit.model.state_dict(),
         "arch_config": arch_config,
-        "input_size": in_size_ckpt,
+        "input_size": Xtr.shape[1],
         "output_size": ytr.shape[1],
+        "feature_names": feats,
     }, out_path)
     print(f"Saved to {out_path}")
     return out_path
