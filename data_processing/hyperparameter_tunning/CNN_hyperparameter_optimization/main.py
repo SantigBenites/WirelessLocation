@@ -26,7 +26,7 @@ from pytorch_lightning.utilities import rank_zero
 rank_zero._get_rank = lambda: 1
 
 
-all_collections = [
+all_collections = []
     #"equilatero_grande_garage",
     #"equilatero_grande_outdoor",
     #"equilatero_medio_garage",
@@ -38,7 +38,7 @@ all_collections = [
     #"obtusangulo_pequeno_outdoor",
     #"reto_grande_garage",
     #"reto_grande_indoor",
-    "reto_grande_outdoor",
+    #"reto_grande_outdoor",
     #"reto_medio_garage",
     #"reto_medio_outdoor",
     #"reto_n_quadrado_grande_indoor",
@@ -46,7 +46,7 @@ all_collections = [
     #"reto_n_quadrado_pequeno_outdoor",
     #"reto_pequeno_garage",
     #"reto_pequeno_outdoor",
-]
+#]
 
 def group_by_location(collections, locations):
     return [name for name in collections if any(loc in name for loc in locations)]
@@ -77,15 +77,10 @@ def load_and_process_data(train_collections, db_name):
           f"X_val: {X_val.shape}, y_val: {y_val.shape}")
     return X_train, y_train, X_val, y_val
 
-if __name__ == '__main__':
+
+
+def singular_run(config:TrainingConfig):
     try:
-        config = TrainingConfig()
-
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5"
-
-        ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
-        # Suppress Ray internal logs
-        logging.getLogger("ray").setLevel(logging.ERROR)
 
         experiments = {
             #"outdoor_only": group_by_location(all_collections, ["outdoor"]),
@@ -131,3 +126,36 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"❌ Error during execution: {str(e)}")
         raise
+
+
+if __name__ == '__main__':
+
+    collections = ["indoor","garage","outdoor"]
+    databases = ["wifi_fingerprinting_data","wifi_fingerprinting_data_exponential","wifi_fingerprinting_data_extra_features_no_leak"]
+    database_name = {
+        "wifi_fingerprinting_data": "XY_norm_FINAL",
+        "wifi_fingerprinting_data_exponential": "XY_RSSI_norm_FINAL",
+        "wifi_fingerprinting_data_extra_features_no_leak": "EXTRA_FEAT_FINAL",
+    }
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5"
+
+    ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
+    # Suppress Ray internal logs
+    logging.getLogger("ray").setLevel(logging.ERROR)
+
+
+    for current_database in databases:
+
+        for current_collection in collections: 
+
+            print(f"Current Database {current_database} with collection {current_collection}")
+
+            all_collections = [f"reto_grande_{current_collection}"]
+            current_config = TrainingConfig()
+            current_config.db_name = current_database
+            current_config.group_name = f"CNN_{database_name[current_database]}_{current_collection}"
+            current_config.model_save_dir = f"model_storage_{database_name[current_database]}_{current_collection}"
+            print(f"🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 RUN START")
+            singular_run(current_config)
+            print(f"🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥RUN END")

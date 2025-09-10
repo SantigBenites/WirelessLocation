@@ -1,19 +1,20 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import Dict, Any
 
 @dataclass
 class TrainingConfig:
     # Data settings
     test_size: float = 0.2
     random_state: int = 42
-    db_name="wifi_fingerprinting_data_raw"
+    db_name: str = "error_db"
 
     # Training settings
     epochs: int = 50
     training_depth: int = 10
     models_per_depth: int = 12
-    num_cpu = 24
-    group_name: str = "CNN_RAW_FINAL_outdoor"
-    num_dataloader_workers = 0
+    num_cpu: int = 24
+    group_name: str = "error_group_name"
+    num_dataloader_workers: int = 0
 
     # Model generation
     initial_variation_factor: float = 0.3
@@ -27,7 +28,7 @@ class TrainingConfig:
     # Global search configuration
     num_gradient_runs: int = 5
 
-    # Model Storage
-    model_save_dir = "model_storage_RAW_FINAL_outdoor"
-    experiment_name = "CNN_RAW_FINA_outdoor"
-    run_index = 0
+    # Model Storage / run metadata
+    model_save_dir: str = "model_storage_hehe_error"
+    experiment_name: str = "CNN_error"
+    run_index: int = 0
