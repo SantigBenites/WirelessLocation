@@ -48,25 +48,25 @@ from model_generation import GeneratedModel
 
 
 all_collections = [
-    #"equilatero_grande_garage",
+    "equilatero_grande_garage",
     "equilatero_grande_outdoor",
-    #"equilatero_medio_garage",
-    #"equilatero_medio_outdoor",
-    #"isosceles_grande_indoor",
-    #"isosceles_grande_outdoor",
-    #"isosceles_medio_outdoor",
-    #"obtusangulo_grande_outdoor",
-    #"obtusangulo_pequeno_outdoor",
-    #"reto_grande_garage",
-    #"reto_grande_indoor",
-    #"reto_grande_outdoor",
-    #"reto_medio_garage",
-    #"reto_medio_outdoor",
-    #"reto_n_quadrado_grande_indoor",
-    #"reto_n_quadrado_grande_outdoor",
-    #"reto_n_quadrado_pequeno_outdoor",
-    #"reto_pequeno_garage",
-    #"reto_pequeno_outdoor",
+    "equilatero_medio_garage",
+    "equilatero_medio_outdoor",
+    "isosceles_grande_indoor",
+    "isosceles_grande_outdoor",
+    "isosceles_medio_outdoor",
+    "obtusangulo_grande_outdoor",
+    "obtusangulo_pequeno_outdoor",
+    "reto_grande_garage",
+    "reto_grande_indoor",
+    "reto_grande_outdoor",
+    "reto_medio_garage",
+    "reto_medio_outdoor",
+    "reto_n_quadrado_grande_indoor",
+    "reto_n_quadrado_grande_outdoor",
+    "reto_n_quadrado_pequeno_outdoor",
+    "reto_pequeno_garage",
+    "reto_pequeno_outdoor",
 ]
 
 
@@ -105,9 +105,9 @@ def build_validation_sets(db_name: str, mongo_uri: str):
     os.environ.setdefault("MONGO_URI", mongo_uri)
 
     groups = {
-        #"indoor": group_by_location(all_collections, ["indoor"]),
+        "indoor": group_by_location(all_collections, ["indoor"]),
         "outdoor": group_by_location(all_collections, ["outdoor"]),
-        #"garage": group_by_location(all_collections, ["garage"]),
+        "garage": group_by_location(all_collections, ["garage"]),
         #"all_datasets": list(all_collections),
     }
 

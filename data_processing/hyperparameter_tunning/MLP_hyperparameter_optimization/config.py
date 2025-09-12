@@ -5,14 +5,14 @@ class TrainingConfig:
     # Data settings
     test_size: float = 0.2
     random_state: int = 42
-    db_name="wifi_fingerprinting_data_raw"
+    db_name="wifi_fingerprinting_data_extra_features_no_leak"
 
     # Training settings
     epochs: int = 50
     training_depth: int = 10
     models_per_depth: int = 12
     num_cpu = 24
-    group_name: str = "MLP_RAW_FINAL_outdoor"
+    group_name: str = "MLP_DELTA_FINAL_outdoor"
     num_dataloader_workers = 0
 
     # Model generation
@@ -28,6 +28,6 @@ class TrainingConfig:
     num_gradient_runs: int = 5
 
     # Model Storage
-    model_save_dir = "model_storage_RAW_FINAL_outdoor"
-    experiment_name = "MLP_RAW_FINAL_outdoor"
+    model_save_dir = "model_storage_DELTA_FINAL_outdoor"
+    experiment_name = "MLP_DELTA_FINAL_outdoor"
     run_index = 0

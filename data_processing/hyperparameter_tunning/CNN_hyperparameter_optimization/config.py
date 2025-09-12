@@ -9,9 +9,9 @@ class TrainingConfig:
     db_name: str = "error_db"
 
     # Training settings
-    epochs: int = 50
-    training_depth: int = 10
-    models_per_depth: int = 12
+    epochs: int = 30
+    training_depth: int = 5
+    models_per_depth: int = 8
     num_cpu: int = 24
     group_name: str = "error_group_name"
     num_dataloader_workers: int = 0
@@ -26,7 +26,7 @@ class TrainingConfig:
     default_weight_decay: float = 0.0
 
     # Global search configuration
-    num_gradient_runs: int = 5
+    num_gradient_runs: int = 3
 
     # Model Storage / run metadata
     model_save_dir: str = "model_storage_hehe_error"

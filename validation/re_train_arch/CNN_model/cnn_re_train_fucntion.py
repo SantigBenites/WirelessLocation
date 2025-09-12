@@ -22,15 +22,15 @@ def cnn_retrain_from_pt(
     pt_path: str,
     out_model_name:str,
     train_collections: list,
-    val_collections: list = None,
-    db_name: str = None,
-    load_weights: bool = False,           # set False to re-init but keep same architecture
-    max_epochs: int = None,
-    batch_size: int = None,
-    lr: float = None,
-    weight_decay: float = None,
-    optimizer: str = "adamw",
-    save_dir: str = "retrained_models",
+    val_collections: list,
+    db_name: str,
+    load_weights: bool,           # set False to re-init but keep same architecture
+    max_epochs: int,
+    batch_size: int,
+    lr: float,
+    weight_decay: float,
+    optimizer: str ,
+    save_dir,
 ):
     # ----- Load checkpoint (arch + sizes + weights) -----
     ckpt = torch.load(pt_path, map_location="cpu")

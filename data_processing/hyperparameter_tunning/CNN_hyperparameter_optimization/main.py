@@ -8,6 +8,7 @@ import logging, warnings
 import multiprocessing
 import logging
 import ray
+from typing import Dict
 
 # Configure environment
 torch.set_float32_matmul_precision('high')
@@ -26,27 +27,27 @@ from pytorch_lightning.utilities import rank_zero
 rank_zero._get_rank = lambda: 1
 
 
-all_collections = []
-    #"equilatero_grande_garage",
-    #"equilatero_grande_outdoor",
-    #"equilatero_medio_garage",
-    #"equilatero_medio_outdoor",
-    #"isosceles_grande_indoor",
-    #"isosceles_grande_outdoor",
-    #"isosceles_medio_outdoor",
-    #"obtusangulo_grande_outdoor",
-    #"obtusangulo_pequeno_outdoor",
-    #"reto_grande_garage",
-    #"reto_grande_indoor",
-    #"reto_grande_outdoor",
-    #"reto_medio_garage",
-    #"reto_medio_outdoor",
-    #"reto_n_quadrado_grande_indoor",
-    #"reto_n_quadrado_grande_outdoor",
-    #"reto_n_quadrado_pequeno_outdoor",
-    #"reto_pequeno_garage",
-    #"reto_pequeno_outdoor",
-#]
+all_collections = [
+    "equilatero_grande_garage",
+    "equilatero_grande_outdoor",
+    "equilatero_medio_garage",
+    "equilatero_medio_outdoor",
+    "isosceles_grande_indoor",
+    "isosceles_grande_outdoor",
+    "isosceles_medio_outdoor",
+    "obtusangulo_grande_outdoor",
+    "obtusangulo_pequeno_outdoor",
+    "reto_grande_garage",
+    "reto_grande_indoor",
+    "reto_grande_outdoor",
+    "reto_medio_garage",
+    "reto_medio_outdoor",
+    "reto_n_quadrado_grande_indoor",
+    "reto_n_quadrado_grande_outdoor",
+    "reto_n_quadrado_pequeno_outdoor",
+    "reto_pequeno_garage",
+    "reto_pequeno_outdoor",
+]
 
 def group_by_location(collections, locations):
     return [name for name in collections if any(loc in name for loc in locations)]
@@ -79,18 +80,8 @@ def load_and_process_data(train_collections, db_name):
 
 
 
-def singular_run(config:TrainingConfig):
+def singular_run(config:TrainingConfig, experiments):
     try:
-
-        experiments = {
-            #"outdoor_only": group_by_location(all_collections, ["outdoor"]),
-            #"indoor_only": group_by_location(all_collections, ["indoor"]),
-            #"garage_only": group_by_location(all_collections, ["garage"]),
-            #"outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
-            #"outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
-            #"outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
-            "all_data": all_collections,
-        }
 
         for experiment_name, train_collections in experiments.items():
             print(f"🔬 Starting experiment: {experiment_name}")
@@ -128,8 +119,7 @@ def singular_run(config:TrainingConfig):
         raise
 
 
-if __name__ == '__main__':
-
+def run_pipeline():
     collections = ["indoor","garage","outdoor"]
     databases = ["wifi_fingerprinting_data","wifi_fingerprinting_data_exponential","wifi_fingerprinting_data_extra_features_no_leak"]
     database_name = {
@@ -137,12 +127,6 @@ if __name__ == '__main__':
         "wifi_fingerprinting_data_exponential": "XY_RSSI_norm_FINAL",
         "wifi_fingerprinting_data_extra_features_no_leak": "EXTRA_FEAT_FINAL",
     }
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5"
-
-    ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
-    # Suppress Ray internal logs
-    logging.getLogger("ray").setLevel(logging.ERROR)
 
 
     for current_database in databases:
@@ -159,3 +143,66 @@ if __name__ == '__main__':
             print(f"🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 RUN START")
             singular_run(current_config)
             print(f"🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥RUN END")
+
+
+def one_run_pipeline():
+    all_collections = [f"reto_grande_outdoor"]
+    current_config = TrainingConfig()
+    current_config.db_name = "wifi_fingerprinting_data_extra_features_no_leak"
+    current_config.group_name = f"CNN_DELTA_FINAL_outdoor"
+    current_config.model_save_dir = f"model_storage_DELTA_FINAL_outdoor"
+    print(f"🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 RUN START")
+    singular_run(current_config)
+    print(f"🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥RUN END")
+
+
+def missing_experiment_pipeline():
+
+    experiments_per_run={
+
+        "CNN_meters" : {
+            "db_name" : "wifi_fingerprinting_data_meters",
+            "group_name" : "CNN_final_meters",
+            "model_save_dir" : "model_storage_final_meters",
+            "experiments" : {
+                "outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
+                "outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
+                "garage_and_indoor": group_by_location(all_collections, ["garage", "indoor"]),
+                "outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
+            }
+        },
+
+    }
+
+    for experiment in experiments_per_run.keys():
+
+        config = experiments_per_run[experiment]
+        current_config = TrainingConfig()
+        current_config.db_name = config["db_name"]
+        current_config.group_name = config["group_name"]
+        current_config.model_save_dir = config["model_save_dir"]
+        current_experiment = config["experiments"]
+        print(f"🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 RUN START")
+        #print(f"Running experimetn with {current_config.db_name}, {current_config.group_name}, {current_config.model_save_dir}, {current_experiment}")
+        singular_run(current_config,current_experiment)
+        print(f"🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥RUN END")
+
+if __name__ == '__main__':
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,4,5"
+    ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
+    # Suppress Ray internal logs
+    logging.getLogger("ray").setLevel(logging.ERROR)
+    missing_experiment_pipeline()
+
+
+#experiments = {
+#    #"outdoor_only": group_by_location(all_collections, ["outdoor"]),
+#    #"indoor_only": group_by_location(all_collections, ["indoor"]),
+#    #"garage_only": group_by_location(all_collections, ["garage"]),
+#    #"outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
+#    #"outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
+#    #"garage_and_indoor": group_by_location(all_collections, ["garage", "indoor"])
+#    #"outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
+#    #"all_data": all_collections,
+#}
