@@ -99,8 +99,8 @@ group_data = {
     {"model_storage" : f"{CNN_ROOT}model_storage_final_raw",
      "database" : "wifi_fingerprinting_data_raw",
      "relative_coeficient" : 3.2},
-"CNN__meters" : 
-    {"model_storage" : f"{CNN_ROOT}model_storage_meters",
+"CNN_final_meters" : 
+    {"model_storage" : f"{CNN_ROOT}model_storage_final_meters",
      "database" : "wifi_fingerprinting_data_meters",
      "relative_coeficient" : 1},
 "CNN_final_exponential" : 

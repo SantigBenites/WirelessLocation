@@ -48,6 +48,8 @@ data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/model_sto
 data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/models_second
 data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/models_second/*
 data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/best_models*
+data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/CNN_DATA_ANALYSIS*/*
+data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/CNN_DATA_ANALYSIS*
 
 ## LSTM OPTIOMIZATION
 

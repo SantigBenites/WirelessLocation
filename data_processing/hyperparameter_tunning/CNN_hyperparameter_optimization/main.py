@@ -9,6 +9,7 @@ import multiprocessing
 import logging
 import ray
 from typing import Dict
+from experiments import group_by_location,all_collections,experiments
 
 # Configure environment
 torch.set_float32_matmul_precision('high')
@@ -27,32 +28,7 @@ from pytorch_lightning.utilities import rank_zero
 rank_zero._get_rank = lambda: 1
 
 
-all_collections = [
-    "equilatero_grande_garage",
-    "equilatero_grande_outdoor",
-    "equilatero_medio_garage",
-    "equilatero_medio_outdoor",
-    "isosceles_grande_indoor",
-    "isosceles_grande_outdoor",
-    "isosceles_medio_outdoor",
-    "obtusangulo_grande_outdoor",
-    "obtusangulo_pequeno_outdoor",
-    "reto_grande_garage",
-    "reto_grande_indoor",
-    "reto_grande_outdoor",
-    "reto_medio_garage",
-    "reto_medio_outdoor",
-    "reto_n_quadrado_grande_indoor",
-    "reto_n_quadrado_grande_outdoor",
-    "reto_n_quadrado_pequeno_outdoor",
-    "reto_pequeno_garage",
-    "reto_pequeno_outdoor",
-]
-
-def group_by_location(collections, locations):
-    return [name for name in collections if any(loc in name for loc in locations)]
-
-def load_and_process_data(train_collections, db_name):
+def load_and_process_data(train_collections,val_collections, db_name):
     # Resolve which features to use for this DB (preset name or explicit list)
     feature_list = get_feature_list(db_name)
 
@@ -69,7 +45,7 @@ def load_and_process_data(train_collections, db_name):
 
     # ---- Validation data
     print("📡 Loading validation datasets: all collections")
-    val_datasets = [get_dataset(name, db_name, feature_list) for name in all_collections]
+    val_datasets = [get_dataset(name, db_name, feature_list) for name in val_collections]
     combined_val = combine_arrays(val_datasets)
     shuffled_val = shuffle_array(combined_val)
     X_val, y_val = split_combined_data(shuffled_val, feature_list)
@@ -83,9 +59,11 @@ def load_and_process_data(train_collections, db_name):
 def singular_run(config:TrainingConfig, experiments):
     try:
 
-        for experiment_name, train_collections in experiments.items():
+        for experiment_name, collections in experiments.items():
             print(f"🔬 Starting experiment: {experiment_name}")
-            X_train, y_train, X_val, y_val = load_and_process_data(train_collections, config.db_name)
+            train_collections = collections[0]
+            val_collections = collections[1]
+            X_train, y_train, X_val, y_val = load_and_process_data(train_collections, val_collections, config.db_name)
 
             all_best_models = []
             print(f"🚀 Running {config.num_gradient_runs} independent gradient searches...")
@@ -135,7 +113,6 @@ def run_pipeline():
 
             print(f"Current Database {current_database} with collection {current_collection}")
 
-            all_collections = [f"reto_grande_{current_collection}"]
             current_config = TrainingConfig()
             current_config.db_name = current_database
             current_config.group_name = f"CNN_{database_name[current_database]}_{current_collection}"
@@ -146,7 +123,6 @@ def run_pipeline():
 
 
 def one_run_pipeline():
-    all_collections = [f"reto_grande_outdoor"]
     current_config = TrainingConfig()
     current_config.db_name = "wifi_fingerprinting_data_extra_features_no_leak"
     current_config.group_name = f"CNN_DELTA_FINAL_outdoor"
@@ -158,25 +134,10 @@ def one_run_pipeline():
 
 def missing_experiment_pipeline():
 
-    experiments_per_run={
 
-        "CNN_meters" : {
-            "db_name" : "wifi_fingerprinting_data_meters",
-            "group_name" : "CNN_final_meters",
-            "model_save_dir" : "model_storage_final_meters",
-            "experiments" : {
-                "outdoor_and_indoor": group_by_location(all_collections, ["outdoor", "indoor"]),
-                "outdoor_and_garage": group_by_location(all_collections, ["outdoor", "garage"]),
-                "garage_and_indoor": group_by_location(all_collections, ["garage", "indoor"]),
-                "outdoor_indoor_and_garage": group_by_location(all_collections, ["indoor", "outdoor", "garage"]),
-            }
-        },
+    for experiment in experiments.keys():
 
-    }
-
-    for experiment in experiments_per_run.keys():
-
-        config = experiments_per_run[experiment]
+        config = experiments[experiment]
         current_config = TrainingConfig()
         current_config.db_name = config["db_name"]
         current_config.group_name = config["group_name"]
