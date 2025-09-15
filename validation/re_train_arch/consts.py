@@ -228,6 +228,12 @@ cnn_group_data = {
      "relative_coeficient" : 32,
      "validation_collections" : CNN_space_combinations},
 
+"CNN_DATA_ANALYSIS_all_collections_garage_outdoor_indoor":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_all_collections_garage_outdoor_indoor",
+     "database" : "wifi_fingerprinting_data_exponential",
+     "relative_coeficient" : 32,
+     "validation_collections" : CNN_space_combinations},
+
 "CNN_DATA_ANALYSIS_all_spaces_reto_grande":
     {"model_storage" : f"{CNN_DATA_ROOT}model_storage_all_spaces_reto_grande",
      "database" : "wifi_fingerprinting_data_exponential",

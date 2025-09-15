@@ -24,13 +24,172 @@ def group_by_location(collections, locations):
     return [name for name in collections if any(loc in name for loc in locations)]
 
 
+experiments_15092025_extra_features={
+
+
+    ### EXTRA FEATURES #####
+    ## Individual Spaces extra features
+    "CNN_reto_grande_outdoor_extra_features" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features",
+        "group_name" : "CNN_DATA_ANALYSIS_reto_grande_outdoor_extra_features",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features/model_storage_reto_grande_outdoor",
+        "experiments" : {
+            "reto_grande_outdoor_extra_features": (["reto_grande_outdoor"],["reto_grande_outdoor"]),
+        }
+    },
+    "CNN_reto_grande_indoor_extra_features" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features",
+        "group_name" : "CNN_DATA_ANALYSIS_reto_grande_indoor_extra_features",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features/model_storage_reto_grande_indoor",
+        "experiments" : {
+            "reto_grande_indoor_extra_features": (["reto_grande_indoor"],["reto_grande_indoor"]),
+        }
+    },
+    "CNN_reto_grande_garage_extra_features" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features",
+        "group_name" : "CNN_DATA_ANALYSIS_reto_grande_garage_extra_features",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features/model_storage_reto_grande_garage",
+        "experiments" : {
+            "reto_grande_garage_extra_features": (["reto_grande_garage"],["reto_grande_garage"]),
+        }
+    },
+
+    # All spaces extra features
+
+    "CNN_all_spaces_reto_grande_extra_features" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features",
+        "group_name" : "CNN_DATA_ANALYSIS_all_spaces_reto_grande_extra_features",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features/model_storage_all_spaces_reto_grande",
+        "experiments" : {
+            "all_spaces_reto_grande_extra_features": (["reto_grande_outdoor","reto_grande_garage","reto_grande_indoor"],["reto_grande_outdoor","reto_grande_garage","reto_grande_indoor"]),
+        }
+    },
+
+    # Dataset Combinations combinations
+
+    "CNN_all_collections_indoor_outdoor_extra_features" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_indoor_outdoor_extra_features",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features/model_storage_all_collections_indoor_outdoor",
+        "experiments" : {
+            "all_collections_indoor_outdoor_extra_features": (group_by_location(all_collections, ["indoor", "outdoor"]),group_by_location(all_collections, ["indoor", "outdoor"])),
+        }
+    },
+    
+    "CNN_all_collections_indoor_garage_extra_features" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_indoor_garage_extra_features",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features/model_storage_all_collections_indoor_garage",
+        "experiments" : {
+            "all_collections_indoor_garage_extra_features": (group_by_location(all_collections, ["indoor", "garage"]),group_by_location(all_collections, ["indoor", "garage"])),
+        }
+    },
+
+    "CNN_all_collections_garage_outdoor_extra_features" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_garage_outdoor_extra_features",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features/model_storage_all_collections_garage_outdoor",
+        "experiments" : {
+            "all_collections_garage_outdoor_extra_features": (group_by_location(all_collections, ["garage", "outdoor"]),group_by_location(all_collections, ["garage", "outdoor"])),
+        }
+    },
+
+    "CNN_all_collections_garage_outdoor_indoor_extra_features" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_garage_outdoor_indoor_extra_features",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features/model_storage_all_collections_garage_outdoor_indoor",
+        "experiments" : {
+            "all_collections_garage_outdoor_indoor_extra_features": (group_by_location(all_collections, ["garage", "outdoor","indoor"]),group_by_location(all_collections, ["garage", "outdoor","indoor"])),
+        }
+    },
+}
+
+experiments_15092025_3 ={
+    ### EXTRA FEATURES NO LEAK#####
+    ## Individual Spaces extra features no leak
+    "CNN_reto_grande_outdoor_extra_features_no_leak" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features_no_leak",
+        "group_name" : "CNN_DATA_ANALYSIS_reto_grande_outdoor_extra_features_no_leak",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features_no_leak/model_storage_reto_grande_outdoor",
+        "experiments" : {
+            "reto_grande_outdoor_extra_features_no_leak": (["reto_grande_outdoor"],["reto_grande_outdoor"]),
+        }
+    },
+    "CNN_reto_grande_indoor_extra_features_no_leak" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features_no_leak",
+        "group_name" : "CNN_DATA_ANALYSIS_reto_grande_indoor_extra_features_no_leak",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features_no_leak/model_storage_reto_grande_indoor",
+        "experiments" : {
+            "reto_grande_indoor_extra_features_no_leak": (["reto_grande_indoor"],["reto_grande_indoor"]),
+        }
+    },
+    "CNN_reto_grande_garage_extra_features_no_leak" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features_no_leak",
+        "group_name" : "CNN_DATA_ANALYSIS_reto_grande_garage_extra_features_no_leak",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features_no_leak/model_storage_reto_grande_garage",
+        "experiments" : {
+            "reto_grande_garage_extra_features_no_leak": (["reto_grande_garage"],["reto_grande_garage"]),
+        }
+    },
+
+    # All spaces extra features
+
+    "CNN_all_spaces_reto_grande_extra_features_no_leak" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features_no_leak",
+        "group_name" : "CNN_DATA_ANALYSIS_all_spaces_reto_grande_extra_features_no_leak",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features_no_leak/model_storage_all_spaces_reto_grande",
+        "experiments" : {
+            "all_spaces_reto_grande_extra_features_no_leak": (["reto_grande_outdoor","reto_grande_garage","reto_grande_indoor"],["reto_grande_outdoor","reto_grande_garage","reto_grande_indoor"]),
+        }
+    },
+
+    # Dataset Combinations combinations
+
+    "CNN_all_collections_indoor_outdoor_extra_features_no_leak" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features_no_leak",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_indoor_outdoor_extra_features_no_leak",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features_no_leak/model_storage_all_collections_indoor_outdoor",
+        "experiments" : {
+            "all_collections_indoor_outdoor_extra_features_no_leak": (group_by_location(all_collections, ["indoor", "outdoor"]),group_by_location(all_collections, ["indoor", "outdoor"])),
+        }
+    },
+    
+    "CNN_all_collections_indoor_garage_extra_features_no_leak" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features_no_leak",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_indoor_garage_extra_features_no_leak",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features_no_leak/model_storage_all_collections_indoor_garage",
+        "experiments" : {
+            "all_collections_indoor_garage_extra_features_no_leak": (group_by_location(all_collections, ["indoor", "garage"]),group_by_location(all_collections, ["indoor", "garage"])),
+        }
+    },
+
+    "CNN_all_collections_garage_outdoor_extra_features_no_leak" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features_no_leak",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_garage_outdoor_extra_features_no_leak",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features_no_leak/model_storage_all_collections_garage_outdoor",
+        "experiments" : {
+            "all_collections_garage_outdoor_extra_features_no_leak": (group_by_location(all_collections, ["garage", "outdoor"]),group_by_location(all_collections, ["garage", "outdoor"])),
+        }
+    },
+
+    "CNN_all_collections_garage_outdoor_indoor_extra_features_no_leak" : {
+        "db_name" : "wifi_fingerprinting_data_extra_features_no_leak",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_garage_outdoor_indoor_extra_features_no_leak",
+        "model_save_dir" : "CNN_DATA_ANALYSIS_extra_features_no_leak/model_storage_all_collections_garage_outdoor_indoor",
+        "experiments" : {
+            "all_collections_garage_outdoor_indoor_extra_features_no_leak": (group_by_location(all_collections, ["garage", "outdoor","indoor"]),group_by_location(all_collections, ["garage", "outdoor","indoor"])),
+        }
+    },
+    
+}
+
 experiments_15092025={
     "CNN_all_collections_garage_outdoor" : {
         "db_name" : "wifi_fingerprinting_data_exponential",
         "group_name" : "CNN_DATA_ANALYSIS_all_collections_garage_outdoor_indoor",
         "model_save_dir" : "CNN_DATA_ANALYSIS/model_storage_all_collections_garage_outdoor_indoor",
         "experiments" : {
-            "all_collections_garage_outdoor": (group_by_location(all_collections, ["garage", "outdoor","indoor"]),group_by_location(all_collections, ["garage", "outdoor","indoor"])),
+            "all_collections_garage_outdoor_indoor": (group_by_location(all_collections, ["garage", "outdoor","indoor"]),group_by_location(all_collections, ["garage", "outdoor","indoor"])),
         }
     },
 }

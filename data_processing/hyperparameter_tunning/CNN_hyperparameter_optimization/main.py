@@ -134,11 +134,11 @@ def one_run_pipeline():
 
 def missing_experiment_pipeline():
 
-    from experiments import experiments_15092025
+    from experiments import experiments_15092025_extra_features
 
-    for experiment in experiments_15092025.keys():
+    for experiment in experiments_15092025_extra_features.keys():
 
-        config = experiments_15092025[experiment]
+        config = experiments_15092025_extra_features[experiment]
         current_config = TrainingConfig()
         current_config.db_name = config["db_name"]
         current_config.group_name = config["group_name"]
