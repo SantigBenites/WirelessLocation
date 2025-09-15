@@ -23,7 +23,19 @@ all_collections = [
 def group_by_location(collections, locations):
     return [name for name in collections if any(loc in name for loc in locations)]
 
-experiments={
+
+experiments_15092025={
+    "CNN_all_collections_garage_outdoor" : {
+        "db_name" : "wifi_fingerprinting_data_exponential",
+        "group_name" : "CNN_DATA_ANALYSIS_all_collections_garage_outdoor_indoor",
+        "model_save_dir" : "CNN_DATA_ANALYSIS/model_storage_all_collections_garage_outdoor_indoor",
+        "experiments" : {
+            "all_collections_garage_outdoor": (group_by_location(all_collections, ["garage", "outdoor","indoor"]),group_by_location(all_collections, ["garage", "outdoor","indoor"])),
+        }
+    },
+}
+
+experiments_13092025={
 
     ## METERS EXPERIMENT
     "CNN_reto_grande_outdoor_meters" : {

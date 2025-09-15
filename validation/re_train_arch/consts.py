@@ -73,9 +73,35 @@ best_model_dictionary = {
 
 }
 
+all_collections = [
+    "equilatero_grande_garage",
+    "equilatero_grande_outdoor",
+    "equilatero_medio_garage",
+    "equilatero_medio_outdoor",
+    "isosceles_grande_indoor",
+    "isosceles_grande_outdoor",
+    "isosceles_medio_outdoor",
+    "obtusangulo_grande_outdoor",
+    "obtusangulo_pequeno_outdoor",
+    "reto_grande_garage",
+    "reto_grande_indoor",
+    "reto_grande_outdoor",
+    "reto_medio_garage",
+    "reto_medio_outdoor",
+    "reto_n_quadrado_grande_indoor",
+    "reto_n_quadrado_grande_outdoor",
+    "reto_n_quadrado_pequeno_outdoor",
+    "reto_pequeno_garage",
+    "reto_pequeno_outdoor",
+]
+
+def group_by_location(collections, locations):
+    return [name for name in collections if any(loc in name for loc in locations)]
+
 CNN_ROOT = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/"
 NN_ROOT = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/NN_hyperparameter_optimization/"
 MLP_ROOT = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/"
+CNN_DATA_ROOT = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/CNN_DATA_ANALYSIS/"
 
 BATCHSIZE = 2048
 MAX_EPOCHS = 50
@@ -107,26 +133,105 @@ group_data = {
     {"model_storage" : f"{CNN_ROOT}model_storage_final_exponential",
      "database" : "wifi_fingerprinting_data_exponential",
      "relative_coeficient" : 32},
+"CNN_final_delta" :
+    {"model_storage" : f"{CNN_ROOT}model_storage_final_delta",
+     "database" : "wifi_fingerprinting_data_extra_features_no_leak",
+     "relative_coeficient" : 32},
+}
+# ANALYSIS
+
+CNN_validation_collections = {  "reto_grande_outdoor"   : ["reto_grande_outdoor"],
+                                "reto_grande_indoor"    : ["reto_grande_indoor"],
+                                "reto_grande_garage"    : ["reto_grande_garage"],
+                                "all_reto_grande"       : ["reto_grande_outdoor","reto_grande_indoor","reto_grande_garage"]}
+
+
+CNN_space_combinations = {"all_collections_garage"                  : group_by_location(all_collections, ["garage"]),
+                          "all_collections_outdoor"                 : group_by_location(all_collections, ["outdoor"]),
+                          "all_collections_indoor"                  : group_by_location(all_collections, ["indoor"]),
+                          "all_collections_garage_outdoor"          : group_by_location(all_collections, ["garage", "outdoor"]),
+                          "all_collections_garage_indoor"           : group_by_location(all_collections, ["garage", "indoor"]),
+                          "all_collections_indoor_outdoor"          : group_by_location(all_collections, ["indoor", "outdoor"]),
+                          "all_collections_garage_outdoor_indoor"   : group_by_location(all_collections, ["garage", "outdoor","indoor"])}
+
+
+cnn_group_data = {
+"CNN_DATA_ANALYSIS_reto_grande_garage_exponential":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_garage_exponential",
+     "database" : "wifi_fingerprinting_data_exponential",
+     "relative_coeficient" : 32,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_reto_grande_indoor_exponential":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_indoor_exponential",
+     "database" : "wifi_fingerprinting_data_exponential",
+     "relative_coeficient" : 32,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_reto_grande_outdoor_exponential":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_outdoor_exponential",
+     "database" : "wifi_fingerprinting_data_exponential",
+     "relative_coeficient" : 32,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_reto_grande_garage_raw":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_garage_raw",
+     "database" : "wifi_fingerprinting_data_raw",
+     "relative_coeficient" : 3.2,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_reto_grande_indoor_raw":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_indoor_raw",
+     "database" : "wifi_fingerprinting_data_raw",
+     "relative_coeficient" : 3.2,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_reto_grande_outdoor_raw":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_outdoor_raw",
+     "database" : "wifi_fingerprinting_data_raw",
+     "relative_coeficient" : 3.2,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_reto_grande_garage_meters":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_garage_meters",
+     "database" : "wifi_fingerprinting_data_meters",
+     "relative_coeficient" : 1,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_reto_grande_indoor_meters":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_indoor_meters",
+     "database" : "wifi_fingerprinting_data_meters",
+     "relative_coeficient" : 1,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_reto_grande_outdoor_meters":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_reto_grande_outdoor_meters",
+     "database" : "wifi_fingerprinting_data_meters",
+     "relative_coeficient" : 1,
+     "validation_collections" : CNN_validation_collections},
+
+"CNN_DATA_ANALYSIS_all_collections_garage_outdoor":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_all_collections_garage_outdoor",
+     "database" : "wifi_fingerprinting_data_exponential",
+     "relative_coeficient" : 32,
+     "validation_collections" : CNN_space_combinations},
+    
+"CNN_DATA_ANALYSIS_all_collections_indoor_garage":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_all_collections_indoor_garage",
+     "database" : "wifi_fingerprinting_data_exponential",
+     "relative_coeficient" : 32,
+     "validation_collections" : CNN_space_combinations},
+    
+"CNN_DATA_ANALYSIS_all_collections_indoor_outdoor":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_all_collections_indoor_outdoor",
+     "database" : "wifi_fingerprinting_data_exponential",
+     "relative_coeficient" : 32,
+     "validation_collections" : CNN_space_combinations},
+
+"CNN_DATA_ANALYSIS_all_spaces_reto_grande":
+    {"model_storage" : f"{CNN_DATA_ROOT}model_storage_all_spaces_reto_grande",
+     "database" : "wifi_fingerprinting_data_exponential",
+     "relative_coeficient" : 32,
+     "validation_collections" : CNN_validation_collections},
 }
 
-all_collections = [
-    "equilatero_grande_garage",
-    "equilatero_grande_outdoor",
-    "equilatero_medio_garage",
-    "equilatero_medio_outdoor",
-    "isosceles_grande_indoor",
-    "isosceles_grande_outdoor",
-    "isosceles_medio_outdoor",
-    "obtusangulo_grande_outdoor",
-    "obtusangulo_pequeno_outdoor",
-    "reto_grande_garage",
-    "reto_grande_indoor",
-    "reto_grande_outdoor",
-    "reto_medio_garage",
-    "reto_medio_outdoor",
-    "reto_n_quadrado_grande_indoor",
-    "reto_n_quadrado_grande_outdoor",
-    "reto_n_quadrado_pequeno_outdoor",
-    "reto_pequeno_garage",
-    "reto_pequeno_outdoor",
-]

@@ -9,7 +9,7 @@ import multiprocessing
 import logging
 import ray
 from typing import Dict
-from experiments import group_by_location,all_collections,experiments
+from experiments import group_by_location,all_collections
 
 # Configure environment
 torch.set_float32_matmul_precision('high')
@@ -134,10 +134,11 @@ def one_run_pipeline():
 
 def missing_experiment_pipeline():
 
+    from experiments import experiments_15092025
 
-    for experiment in experiments.keys():
+    for experiment in experiments_15092025.keys():
 
-        config = experiments[experiment]
+        config = experiments_15092025[experiment]
         current_config = TrainingConfig()
         current_config.db_name = config["db_name"]
         current_config.group_name = config["group_name"]
