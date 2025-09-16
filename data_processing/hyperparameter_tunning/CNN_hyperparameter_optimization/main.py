@@ -134,11 +134,11 @@ def one_run_pipeline():
 
 def missing_experiment_pipeline():
 
-    from experiments import experiments_15092025_extra_features
+    from experiments import experiments_15092025_extra_features_no_leak
 
-    for experiment in experiments_15092025_extra_features.keys():
+    for experiment in experiments_15092025_extra_features_no_leak.keys():
 
-        config = experiments_15092025_extra_features[experiment]
+        config = experiments_15092025_extra_features_no_leak[experiment]
         current_config = TrainingConfig()
         current_config.db_name = config["db_name"]
         current_config.group_name = config["group_name"]
@@ -151,7 +151,7 @@ def missing_experiment_pipeline():
 
 if __name__ == '__main__':
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,4,5"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5"
     ray.init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=True)
     # Suppress Ray internal logs
     logging.getLogger("ray").setLevel(logging.ERROR)

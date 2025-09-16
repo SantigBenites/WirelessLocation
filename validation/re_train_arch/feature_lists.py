@@ -43,6 +43,12 @@ DATASET_TO_FEATURE = {
         "freind3_rssi_share",
         "beta1_log10d",
         "n_est",
+        "freind1_rssi_over_freind2_rssi",
+        "freind1_rssi_over_freind3_rssi",
+        "freind2_rssi_over_freind1_rssi",
+        "freind2_rssi_over_freind3_rssi",
+        "freind3_rssi_over_freind1_rssi",
+        "freind3_rssi_over_freind2_rssi",
     ],
 
     "wifi_fingerprinting_data_extra_features_no_leak": [

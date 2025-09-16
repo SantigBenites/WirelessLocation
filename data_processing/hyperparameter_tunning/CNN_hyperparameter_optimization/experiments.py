@@ -104,7 +104,7 @@ experiments_15092025_extra_features={
     },
 }
 
-experiments_15092025_3 ={
+experiments_15092025_extra_features_no_leak ={
     ### EXTRA FEATURES NO LEAK#####
     ## Individual Spaces extra features no leak
     "CNN_reto_grande_outdoor_extra_features_no_leak" : {

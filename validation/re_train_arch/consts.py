@@ -102,6 +102,7 @@ CNN_ROOT = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparamet
 NN_ROOT = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/NN_hyperparameter_optimization/"
 MLP_ROOT = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/MLP_hyperparameter_optimization/"
 CNN_DATA_ROOT = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/CNN_DATA_ANALYSIS/"
+CNN_DATA_ROOT_EXTRA_FEATURES = "/home/admindi/sbenites/WirelessLocation/data_processing/hyperparameter_tunning/CNN_hyperparameter_optimization/CNN_DATA_ANALYSIS_extra_features/" 
 
 BATCHSIZE = 2048
 MAX_EPOCHS = 50
@@ -239,5 +240,67 @@ cnn_group_data = {
      "database" : "wifi_fingerprinting_data_exponential",
      "relative_coeficient" : 32,
      "validation_collections" : CNN_validation_collections},
+}
+
+
+cnn_group_data_extra_features = {
+
+    ### EXTRA FEATURES #####
+    ## Individual Spaces extra features
+    "CNN_DATA_ANALYSIS_reto_grande_outdoor_extra_features" : {
+        "database" : "wifi_fingerprinting_data_extra_features",
+        "model_storage" : f"{CNN_DATA_ROOT_EXTRA_FEATURES}model_storage_reto_grande_outdoor",
+        "relative_coeficient" : 32,
+        "validation_collections" : CNN_space_combinations},
+
+    "CNN_DATA_ANALYSIS_reto_grande_indoor_extra_features" : {
+        "database" : "wifi_fingerprinting_data_extra_features",
+        "model_storage" : f"{CNN_DATA_ROOT_EXTRA_FEATURES}model_storage_reto_grande_indoor",
+        "relative_coeficient" : 32,
+        "validation_collections" : CNN_space_combinations},
+
+    "CNN_DATA_ANALYSIS_reto_grande_garage_extra_features" : {
+        "database" : "wifi_fingerprinting_data_extra_features",
+        "model_storage" : f"{CNN_DATA_ROOT_EXTRA_FEATURES}model_storage_reto_grande_garage",
+        "relative_coeficient" : 32,
+        "validation_collections" : CNN_space_combinations},
+
+
+    # All spaces extra features
+
+    "CNN_DATA_ANALYSIS_all_spaces_reto_grande_extra_features" : {
+        "database" : "wifi_fingerprinting_data_extra_features",
+        "model_storage" : f"{CNN_DATA_ROOT_EXTRA_FEATURES}model_storage_all_spaces_reto_grande",
+        "relative_coeficient" : 32,
+        "validation_collections" : CNN_space_combinations},
+        
+    # Dataset Combinations combinations
+
+    "CNN_DATA_ANALYSIS_all_collections_indoor_outdoor_extra_features" : {
+        "database" : "wifi_fingerprinting_data_extra_features",
+        "model_storage" : f"{CNN_DATA_ROOT_EXTRA_FEATURES}model_storage_all_collections_indoor_outdoor",
+        "relative_coeficient" : 32,
+        "validation_collections" : CNN_validation_collections},
+
+    "CNN_DATA_ANALYSIS_all_collections_indoor_garage_extra_features" : {
+        "database" : "wifi_fingerprinting_data_extra_features",
+        "model_storage" : f"{CNN_DATA_ROOT_EXTRA_FEATURES}model_storage_all_collections_indoor_garage",
+        "relative_coeficient" : 32,
+        "validation_collections" : CNN_validation_collections},
+
+
+    "CNN_DATA_ANALYSIS_all_collections_garage_outdoor_extra_features" : {
+        "database" : "wifi_fingerprinting_data_extra_features",
+        "model_storage" : f"{CNN_DATA_ROOT_EXTRA_FEATURES}model_storage_all_collections_garage_outdoor",
+        "relative_coeficient" : 32,
+        "validation_collections" : CNN_validation_collections},
+
+
+    "CNN_DATA_ANALYSIS_all_collections_garage_outdoor_indoor_extra_features" : {
+        "database" : "wifi_fingerprinting_data_extra_features",
+        "model_storage" : f"{CNN_DATA_ROOT_EXTRA_FEATURES}model_storage_all_collections_garage_outdoor_indoor",
+        "relative_coeficient" : 32,
+        "validation_collections" : CNN_validation_collections},
+
 }
 

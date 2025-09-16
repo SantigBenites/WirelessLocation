@@ -56,6 +56,7 @@ def evaluate_model_on_collections(
             f"Use a matching 'db_name' or save 'feature_names' in the checkpoint."
         )
     
+    
     if "CNN" in model_path:
         model = CNN_GeneratedModel(input_size=input_size, output_size=output_size, architecture_config=arch)
     elif "MLP" in model_path:
